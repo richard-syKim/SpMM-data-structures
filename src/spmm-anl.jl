@@ -1,9 +1,6 @@
 using Pkg
 Pkg.add("StatsBase")
-
-
 Pkg.add("BenchmarkTools")
-
 Pkg.add("JSON")
 
 using StatsBase
@@ -11,13 +8,11 @@ using BenchmarkTools
 using JSON
 using SparseArrays
 
+const SIZE = 4096
 
-# function matMul(m, x)
-#     return m*x
-# end
 
-# s / 4096 is the density of the matrix
-function sparseMatSetup(s, M = 4096)
+# s / SIZE is the density of the matrix
+function sparseMatSetup(s, M = SIZE)
     # initialize u with random int
     u = zeros(M, M)
 
@@ -34,28 +29,21 @@ function sparseMatSetup(s, M = 4096)
     return u
 end
 
-function vectSetup(M = 4096)
-    x = zeros(M)
-    for i in 1:M
-        x[i] = rand(Float64)
-    end
-
-    return x
-end
-
 
 global i = 0
 global pairs=  []
-while i <= 4096
-    m_naive = sparseMatSetup(4096 - i)
-    x = sparseMatSetup(4096)
-    local bench_results = @benchmark matMul($m, $x)
+while i <= SIZE
+    m_naive = sparseMatSetup(i)
+    x = randn(SIZE, SIZE)
+    local bench_results = @benchmark $m_naive * $x
 
-    push!(pairs, (i / 4096, minimum(bench_results.times)))
-    println("Non-zeros: ", i / 4096, " Time: ", minimum(bench_results.times))
+    push!(pairs, (i / SIZE, minimum(bench_results.times)))
+    println("Naive: \tDensity: ", i / SIZE, " Time: ", minimum(bench_results.times))
 
 
-    m_csc = sprand(4096, 4096, i / 4096)
+    m_csc = sprand(SIZE, SIZE, i / SIZE)
+    bench_results = @benchmark $m_csc * $x
+    println("CSC: \tDensity: ", i / SIZE, " Time: ", minimum(bench_results.times))
 
     global i += 16
 end
