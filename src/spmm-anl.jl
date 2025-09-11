@@ -13,6 +13,7 @@ using JSON
 using SparseArrays
 using SuiteSparseGraphBLAS
 using Finch
+using CUDA
 using CUDA.CUSPARSE
 
 const SIZE = 4096
@@ -159,6 +160,28 @@ global i = 0
 # end
 
 
+# # CUDA CSR format
+# i = 0
+# global pairs_cuda = []
+# while i <= SIZE
+#     m = sprand(SIZE, SIZE, i / SIZE)
+#     x = randn(SIZE, SIZE)
+
+#     m_cuda = CuSparseMatrixCSR(m)
+#     x_cuda = CuArray(x)
+
+#     local bench_results = @benchmark $m_cuda * $x_cuda
+#     push!(pairs_cuda, (i / SIZE, minimum(bench_results.times)))
+#     println("Density: ", i / SIZE, "\tcuda: ", minimum(bench_results.times), "\tns")
+
+#     global i += 16
+# end
+
+# open("results/results-cuda.json", "w") do f
+#     write(f, JSON.json(pairs_cuda))
+# end
+
+
 # CUDA CSR format
 i = 0
 global pairs_cuda = []
@@ -171,9 +194,9 @@ while i <= SIZE
 
     local bench_results = @benchmark $m_cuda * $x_cuda
     push!(pairs_cuda, (i / SIZE, minimum(bench_results.times)))
-    println("Density: ", i / SIZE, "\tcustom: ", minimum(bench_results.times), "\tns")
+    println("Density: ", i / SIZE, "\tcuda: ", minimum(bench_results.times), "\tns")
 
-    global i += 16
+    global i += 64
 end
 
 open("results/results-cuda.json", "w") do f

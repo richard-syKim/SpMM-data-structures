@@ -26,6 +26,21 @@ with open('results/results-custom.json', 'r') as f:
 density_custom = [pair[0] for pair in pairs_custom]
 time_custom = [pair[1] for pair in pairs_custom]
 
+
+# Truncate
+density_naive = density_naive[:len(density_custom) // 8]
+time_naive = time_naive[:len(time_custom) // 8]
+
+density_csc = density_csc[:len(density_custom) // 8]
+time_csc = time_csc[:len(time_custom) // 8]
+
+density_ssgblas = density_ssgblas[:len(density_custom) // 8]
+time_ssgblas = time_ssgblas[:len(time_custom) // 8]
+
+density_custom = density_custom[:len(density_custom) // 8]
+time_custom = time_custom[:len(time_custom) // 8]
+
+
 # Plot
 plt.scatter(density_naive, time_naive, s=10, label ='naive', color='blue')
 plt.scatter(density_csc, time_csc, s=10, label ='csc', color='orange')
@@ -35,6 +50,7 @@ plt.legend()
 plt.xlabel('density')
 plt.ylabel('time')
 plt.title('Scatter plot of SpMM performance')
-# plt.savefig("spmm-plot.png")
 
-plt.savefig("results/spmm-plot-4.png")
+# plt.savefig("results/spmm-plot-4.png")
+
+plt.savefig("results/spmm-plot-4-8.png")
