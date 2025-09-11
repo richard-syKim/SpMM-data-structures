@@ -4,6 +4,8 @@ Pkg.add("BenchmarkTools")
 Pkg.add("JSON")
 Pkg.add("SuiteSparseGraphBLAS")
 Pkg.add("Finch")
+Pkg.add("LinearAlgebra")
+Pkg.add("CUDA")
 
 using StatsBase
 using BenchmarkTools
@@ -11,6 +13,7 @@ using JSON
 using SparseArrays
 using SuiteSparseGraphBLAS
 using Finch
+using CUDA.CUSPARSE
 
 const SIZE = 4096
 
@@ -62,93 +65,117 @@ end
 
 
 global i = 0
-global pairs_naive = []
+# global pairs_naive = []
+# while i <= SIZE
+#     m_naive = sparseMatSetup(i)
+#     x = randn(SIZE, SIZE)
 
-while i <= SIZE
-    m_naive = sparseMatSetup(i)
-    x = randn(SIZE, SIZE)
+#     local bench_results = @benchmark $m_naive * $x
+#     push!(pairs_naive, (i / SIZE, minimum(bench_results.times)))
+#     println("Density: ", i / SIZE, "\tNaive: ", minimum(bench_results.times), "\tns")
 
-    local bench_results = @benchmark $m_naive * $x
-    push!(pairs_naive, (i / SIZE, minimum(bench_results.times)))
-    println("Density: ", i / SIZE, "\tNaive: ", minimum(bench_results.times), "\tns")
+#     global i += 16
+# end
 
-    global i += 16
-end
+# open("results/results-naive.json", "w") do f
+#     write(f, JSON.json(pairs_naive))
+# end
 
-open("results/results-naive.json", "w") do f
-    write(f, JSON.json(pairs_naive))
-end
 
+# SparseArrays CSC format
+# i = 0
+# global pairs_csc = []
+# while i <= SIZE
+#     m_csc = sprand(SIZE, SIZE, i / SIZE)
+#     x = randn(SIZE, SIZE)
+
+#     local bench_results = @benchmark $m_csc * $x
+#     push!(pairs_csc, (i / SIZE, minimum(bench_results.times)))
+#     println("Density: ", i / SIZE, "\tCSC: ", minimum(bench_results.times), "\tns")
+
+#     global i += 16
+# end
+
+# open("results/results-csc.json", "w") do f
+#     write(f, JSON.json(pairs_csc))
+# end
+
+# i = 0
+# global pairs_ssgblas = []
+# while i <= SIZE
+#     m_csc = sprand(SIZE, SIZE, i / SIZE)
+#     x = randn(SIZE, SIZE)
+
+#     m_SSGBLAS = GBMatrix(m_csc)
+#     x_SSGBLAS = GBMatrix(x)
+
+#     local bench_results = @benchmark $m_SSGBLAS * $x_SSGBLAS
+#     push!(pairs_ssgblas, (i / SIZE, minimum(bench_results.times)))
+#     println("Density: ", i / SIZE, "\tSSGBLAS: ", minimum(bench_results.times), "\tns")
+
+#     global i += 16
+# end
+
+# open("results/results-ssgblas.json", "w") do f
+#     write(f, JSON.json(pairs_ssgblas))
+# end
+
+
+# i = 0
+# global pairs_custom = []
+# while i <= SIZE
+#     m_custom = customSparseMatSetup(i)
+#     x = randn(SIZE, SIZE)
+
+#     local bench_results = @benchmark customSparseMatMul($m_custom, $x)
+#     push!(pairs_custom, (i / SIZE, minimum(bench_results.times)))
+#     println("Density: ", i / SIZE, "\tcustom: ", minimum(bench_results.times), "\tns")
+
+#     global i += 16
+# end
+
+# open("results/results-custom.json", "w") do f
+#     write(f, JSON.json(pairs_custom))
+# end
+
+
+# Finch COO format
+# i = 0
+# global pairs_coo = []
+# while i <= SIZE
+#     m_coo = fsprand(Float64, (SIZE, SIZE), i / SIZE)
+#     x = Dense(randn(SIZE, SIZE))
+
+#     # TODO: may have to solve with custom multiply function?
+#     local bench_results = @benchmark $m_coo * $x
+#     push!(pairs_coo, (i / SIZE, minimum(bench_results.times)))
+#     println("Density: ", i / SIZE, "\tcustom: ", minimum(bench_results.times), "\tns")
+
+#     global i += 16
+# end
+
+# open("results/results-coo.json", "w") do f
+#     write(f, JSON.json(pairs_coo))
+# end
+
+
+# CUDA CSR format
 i = 0
-global pairs_csc = []
+global pairs_cuda = []
 while i <= SIZE
-    m_csc = sprand(SIZE, SIZE, i / SIZE)
+    m = sprand(SIZE, SIZE, i / SIZE)
     x = randn(SIZE, SIZE)
 
-    local bench_results = @benchmark $m_csc * $x
-    push!(pairs_csc, (i / SIZE, minimum(bench_results.times)))
-    println("Density: ", i / SIZE, "\tCSC: ", minimum(bench_results.times), "\tns")
+    m_cuda = CuSparseMatrixCSR(m)
+    x_cuda = CuArray(x)
 
-    global i += 16
-end
-
-open("results/results-csc.json", "w") do f
-    write(f, JSON.json(pairs_csc))
-end
-
-i = 0
-global pairs_ssgblas = []
-while i <= SIZE
-    m_csc = sprand(SIZE, SIZE, i / SIZE)
-    x = randn(SIZE, SIZE)
-
-    m_SSGBLAS = GBMatrix(m_csc)
-    x_SSGBLAS = GBMatrix(x)
-
-    local bench_results = @benchmark $m_SSGBLAS * $x_SSGBLAS
-    push!(pairs_ssgblas, (i / SIZE, minimum(bench_results.times)))
-    println("Density: ", i / SIZE, "\tSSGBLAS: ", minimum(bench_results.times), "\tns")
-
-    global i += 16
-end
-
-open("results/results-ssgblas.json", "w") do f
-    write(f, JSON.json(pairs_ssgblas))
-end
-
-i = 0
-global pairs_custom = []
-while i <= SIZE
-    m_custom = customSparseMatSetup(i)
-    x = randn(SIZE, SIZE)
-
-    local bench_results = @benchmark customSparseMatMul($m_custom, $x)
-    push!(pairs_custom, (i / SIZE, minimum(bench_results.times)))
+    local bench_results = @benchmark $m_cuda * $x_cuda
+    push!(pairs_cuda, (i / SIZE, minimum(bench_results.times)))
     println("Density: ", i / SIZE, "\tcustom: ", minimum(bench_results.times), "\tns")
 
     global i += 16
 end
 
-open("results/results-custom.json", "w") do f
-    write(f, JSON.json(pairs_custom))
+open("results/results-cuda.json", "w") do f
+    write(f, JSON.json(pairs_cuda))
 end
-
-
-i = 0
-global pairs_coo = []
-while i <= SIZE
-    m_coo = fsprand(Float64, (SIZE, SIZE), i / SIZE)
-    x = Dense(randn(SIZE, SIZE))
-
-    # TODO: may have to solve with custom multiply function?
-    local bench_results = @benchmark $m_coo * $x
-    push!(pairs_coo, (i / SIZE, minimum(bench_results.times)))
-    println("Density: ", i / SIZE, "\tcustom: ", minimum(bench_results.times), "\tns")
-
-    global i += 16
-end
-
-open("results/results-coo.json", "w") do f
-    write(f, JSON.json(pairs_coo))
-end
-
