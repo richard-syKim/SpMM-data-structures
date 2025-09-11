@@ -42,7 +42,7 @@ function customSparseMatSetup(s, M = SIZE)
     for coord in coords
         i, j = coord
         
-        push!(arr, (i, j, rand(Float64)))
+        push!(u, (i, j, rand(Float64)))
     end
 
     return u
@@ -75,7 +75,7 @@ while i <= SIZE
     global i += 16
 end
 
-open("../results/results-naive.json", "w") do f
+open("results/results-naive.json", "w") do f
     write(f, JSON.json(pairs_naive))
 end
 
@@ -92,7 +92,7 @@ while i <= SIZE
     global i += 16
 end
 
-open("../results/results-csc.json", "w") do f
+open("results/results-csc.json", "w") do f
     write(f, JSON.json(pairs_csc))
 end
 
@@ -112,7 +112,7 @@ while i <= SIZE
     global i += 16
 end
 
-open("../results/results-ssgblas.json", "w") do f
+open("results/results-ssgblas.json", "w") do f
     write(f, JSON.json(pairs_ssgblas))
 end
 
@@ -129,6 +129,26 @@ while i <= SIZE
     global i += 16
 end
 
-open("../results/results-custom.json", "w") do f
+open("results/results-custom.json", "w") do f
     write(f, JSON.json(pairs_custom))
 end
+
+
+i = 0
+global pairs_coo = []
+while i <= SIZE
+    m_coo = fsprand(Float64, (SIZE, SIZE), i / SIZE)
+    x = Dense(randn(SIZE, SIZE))
+
+    # TODO: may have to solve with custom multiply function?
+    local bench_results = @benchmark $m_coo * $x
+    push!(pairs_coo, (i / SIZE, minimum(bench_results.times)))
+    println("Density: ", i / SIZE, "\tcustom: ", minimum(bench_results.times), "\tns")
+
+    global i += 16
+end
+
+open("results/results-coo.json", "w") do f
+    write(f, JSON.json(pairs_coo))
+end
+
