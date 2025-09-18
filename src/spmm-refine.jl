@@ -1,13 +1,13 @@
 using Pkg
-# Pkg.add("StatsBase")
-# Pkg.add("JSON")
-# Pkg.add("BenchmarkTools")
-# Pkg.add("SparseArrays")
-# Pkg.add("SuiteSparseGraphBLAS")
-# Pkg.add("Finch")
+Pkg.add("StatsBase")
+Pkg.add("JSON")
+Pkg.add("BenchmarkTools")
+Pkg.add("SparseArrays")
+Pkg.add("SuiteSparseGraphBLAS")
+Pkg.add("Finch")
 
 using StatsBase
-# using JSON
+using JSON
 using BenchmarkTools
 using SparseArrays
 using SuiteSparseGraphBLAS
@@ -61,6 +61,7 @@ function custom_coo_mul(M, X)
 
     return y
 end
+
 
 
 function sa_csc(M, X, sol)
@@ -213,94 +214,95 @@ while inx <= SIZE
     X = randn(SIZE, SIZE)
 
     sol = M_dense * X
+    println("Density: ", inx / SIZE)
 
     local sa_csc_val = sa_csc(M_dense, X, sol)
     if sa_csc_val != -1
-        println("Density: ", inx / SIZE, "\tCSC: ", sa_csc_val, "\tns")
+        println("\tSparseArrays CSC: ", sa_csc_val, "\tns")
         push!(pairs_sa_csc, (inx / SIZE, sa_csc_val))
     else
-        println("Density: ", inx / SIZE, "\tCSC: matmul resulted in wrong answer.")
+        println("\tSparseArray CSC: matmul resulted in wrong answer.")
     end
 
 
     local ssgblas = ssgblas_mt(M_dense, X, sol)
     if ssgblas != -1
-        println("Density: ", inx / SIZE, "\tSSGBLAS: ", ssgblas, "\tns")
+        println("\tSSGBLAS: ", ssgblas, "\tns")
         push!(pairs_ssgblas, (inx / SIZE, ssgblas))
     else
-        println("Density: ", inx / SIZE, "\tSSGBLAS: matmul resulted in wrong answer.")
+        println("\tSSGBLAS: matmul resulted in wrong answer.")
     end
 
 
     local custom_coo_val = custom_coo(M_dense, X, sol)
     if custom_coo_val != -1
-        println("Density: ", inx / SIZE, "\tCOO: ", custom_coo_val, "\tns")
+        println("\tcustom COO: ", custom_coo_val, "\tns")
         push!(pairs_coo, (inx / SIZE, custom_coo_val))
     else
-        println("Density: ", inx / SIZE, "\tCOO: matmul resulted in wrong answer.")
+        println("\tcustom COO: matmul resulted in wrong answer.")
     end
 
 
     local fin_csc_val = fin_csc(M_dense, X, sol)
     if fin_csc_val != -1
-        println("Density: ", inx / SIZE, "\tCSC: ", fin_csc_val, "\tns")
+        println("\tfinch CSC: ", fin_csc_val, "\tns")
         push!(pairs_fin_csc, (inx / SIZE, fin_csc_val))
     else
-        println("Density: ", inx / SIZE, "\tCSC: matmul resulted in wrong answer.")
+        println("\tfinch CSC: matmul resulted in wrong answer.")
     end
 
 
     local fin_csf_val = fin_csf(M_dense, X, sol)
     if fin_csf_val != -1
-        println("Density: ", inx / SIZE, "\tCSF: ", fin_csf_val, "\tns")
+        println("\tfinch CSF: ", fin_csf_val, "\tns")
         push!(pairs_fin_csf, (inx / SIZE, fin_csf_val))
     else
-        println("Density: ", inx / SIZE, "\tCSF: matmul resulted in wrong answer.")
+        println("\tfinch CSF: matmul resulted in wrong answer.")
     end
 
 
     local fin_dcsc_val = fin_dcsc(M_dense, X, sol)
     if fin_dcsc_val != -1
-        println("Density: ", inx / SIZE, "\tDCSC: ", fin_dcsc_val, "\tns")
+        println("\tfinch DCSC: ", fin_dcsc_val, "\tns")
         push!(pairs_fin_dcsc, (inx / SIZE, fin_dcsc_val))
     else
-        println("Density: ", inx / SIZE, "\tDCSC: matmul resulted in wrong answer.")
+        println("\tfinch DCSC: matmul resulted in wrong answer.")
     end
 
 
     local fin_dcsf_val = fin_dcsf(M_dense, X, sol)
     if fin_dcsf_val != -1
-        println("Density: ", inx / SIZE, "\tDCSF: ", fin_dcsf_val, "\tns")
+        println("\tfinch DCSF: ", fin_dcsf_val, "\tns")
         push!(pairs_fin_dcsf, (inx / SIZE, fin_dcsf_val))
     else
-        println("Density: ", inx / SIZE, "\tDCSF: matmul resulted in wrong answer.")
+        println("\tfinch DCSF: matmul resulted in wrong answer.")
     end
 
 
     local fin_coo_val = fin_coo(M_dense, X, sol)
     if fin_coo_val != -1
-        println("Density: ", inx / SIZE, "\tCOO: ", fin_coo_val, "\tns")
+        println("\tfinch COO: ", fin_coo_val, "\tns")
         push!(pairs_fin_coo, (inx / SIZE, fin_coo_val))
     else
-        println("Density: ", inx / SIZE, "\tCOO: matmul resulted in wrong answer.")
+        println("\tfinch COO: matmul resulted in wrong answer.")
     end
 
 
     local fin_hash_val = fin_hash(M_dense, X, sol)
     if fin_hash_val != -1
-        println("Density: ", inx / SIZE, "\tHash: ", fin_hash_val, "\tns")
+        println("\tfinch Hash: ", fin_hash_val, "\tns")
         push!(pairs_fin_hash, (inx / SIZE, fin_hash_val))
     else
-        println("Density: ", inx / SIZE, "\tHash: matmul resulted in wrong answer.")
+        println("\tfinch Hash: matmul resulted in wrong answer.")
     end
 
 
     local fin_bm_val = fin_bytemap(M_dense, X, sol)
     if fin_bm_val != -1
-        println("Density: ", inx / SIZE, "\tBytemap: ", fin_bm_val, "\tns")
+        println("\tfinch Bytemap: ", fin_bm_val, "\tns")
         push!(pairs_fin_bytemap, (inx / SIZE, fin_bm_val))
     else
-        println("Density: ", inx / SIZE, "\tBytemap: matmul resulted in wrong answer.")
+        println("\tfinch Bytemap: matmul resulted in wrong answer.")
     end
 
     if cnt >= 16
