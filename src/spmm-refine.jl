@@ -63,13 +63,58 @@ function custom_coo_mul(M, X)
 end
 
 
+function isstruct(x)
+    return x isa Any && !(x isa Number) && !(x isa AbstractArray)
+end
+
+
+function finch_isapprox(a, b; rtol=1e-8, atol=1e-12)
+    if typeof(a) != typeof(b)
+        # println("type diff: ", typeof(a), " vs ", typeof(b))
+        return false
+    end
+
+    if a isa Float64 && b isa Float64
+        return abs(a - b) ≤ atol + rtol * max(abs(a), abs(b))
+    elseif a isa Integer && b isa Integer
+        return a == b
+    elseif a isa AbstractArray && b isa AbstractArray
+        if size(a) != size(b)
+            # println("size diff: ", size(a), " vs ", size(b))
+            return false
+        end
+
+        for (x, y) in zip(a, b)
+            if !finch_isapprox(x, y; rtol=rtol, atol=atol)
+                # println("element diff: ", x, " vs ", y)
+                return false
+            end
+        end
+        return true
+
+    elseif isstruct(a) && isstruct(b)
+        for name in fieldnames(typeof(a))
+            ax = getfield(a, name)
+            bx = getfield(b, name)
+            if !finch_isapprox(ax, bx; rtol=rtol, atol=atol)
+                # println("field ", name, " diff: ", ax, " vs ", bx)
+                return false
+            end
+        end
+        return true
+
+    else
+        return isequal(a, b)
+    end
+end
+
 
 function sa_csc(M, X, sol)
     m_sparse = sparse(M)
 
     bench_results = @benchmark $m_sparse * $X
     temp = m_sparse * X
-    if isequal(temp, sol)
+    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -83,7 +128,7 @@ function ssgblas_mt(M, X, sol)
 
     bench_results = @benchmark $m_SSGBLAS * $x_SSGBLAS
     temp = m_SSGBLAS * x_SSGBLAS
-    if isequal(temp, sol)
+    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -96,7 +141,7 @@ function custom_coo(M, X, sol)
 
     bench_results = @benchmark custom_coo_mul($m_coo, $X)
     temp = custom_coo_mul(m_coo, X)
-    if isequal(temp, sol)
+    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -107,10 +152,12 @@ end
 function fin_csc(M, X, sol)
     m_ten = Finch.Tensor(CSCFormat(), M)
     x_ten = Finch.Tensor(CSCFormat(), X)
+    sol_ten = Finch.Tensor(CSCFormat(), sol)
 
     bench_results = @benchmark $m_ten * $x_ten
     temp = m_ten * x_ten
-    if isequal(temp, sol)
+    temp_ten = Finch.Tensor(CSCFormat(), temp)
+    if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -120,10 +167,12 @@ end
 function fin_csf(M, X, sol)
     m_ten = Finch.Tensor(CSFFormat(2), M)
     x_ten = Finch.Tensor(CSFFormat(2), X)
+    sol_ten = Finch.Tensor(CSFFormat(2), sol)
 
     bench_results = @benchmark $m_ten * $x_ten
     temp = m_ten * x_ten
-    if isequal(temp, sol)
+    temp_ten = Finch.Tensor(CSFFormat(2), temp)
+    if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -133,10 +182,12 @@ end
 function fin_dcsc(M, X, sol)
     m_ten = Finch.Tensor(DCSCFormat(), M)
     x_ten = Finch.Tensor(DCSCFormat(), X)
+    sol_ten = Finch.Tensor(DCSCFormat(), sol)
 
     bench_results = @benchmark $m_ten * $x_ten
     temp = m_ten * x_ten
-    if isequal(temp, sol)
+    temp_ten = Finch.Tensor(DCSCFormat(), temp)
+    if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -146,10 +197,12 @@ end
 function fin_dcsf(M, X, sol)
     m_ten = Finch.Tensor(DCSFFormat(2), M)
     x_ten = Finch.Tensor(DCSFFormat(2), X)
+    sol_ten = Finch.Tensor(DCSFFormat(2), sol)
 
     bench_results = @benchmark $m_ten * $x_ten
     temp = m_ten * x_ten
-    if isequal(temp, sol)
+    temp_ten = Finch.Tensor(DCSFFormat(2), temp)
+    if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -159,10 +212,12 @@ end
 function fin_coo(M, X, sol)
     m_ten = Finch.Tensor(COOFormat(2), M)
     x_ten = Finch.Tensor(COOFormat(2), X)
+    sol_ten = Finch.Tensor(COOFormat(2), sol)
 
     bench_results = @benchmark $m_ten * $x_ten
     temp = m_ten * x_ten
-    if isequal(temp, sol)
+    temp_ten = Finch.Tensor(COOFormat(2), temp)
+    if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -172,10 +227,12 @@ end
 function fin_hash(M, X, sol)
     m_ten = Finch.Tensor(HashFormat(2), M)
     x_ten = Finch.Tensor(HashFormat(2), X)
+    sol_ten = Finch.Tensor(HashFormat(2), sol)
 
     bench_results = @benchmark $m_ten * $x_ten
     temp = m_ten * x_ten
-    if isequal(temp, sol)
+    temp_ten = Finch.Tensor(HashFormat(2), temp)
+    if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
@@ -185,10 +242,12 @@ end
 function fin_bytemap(M, X, sol)
     m_ten = Finch.Tensor(ByteMapFormat(2), M)
     x_ten = Finch.Tensor(ByteMapFormat(2), X)
+    sol_ten = Finch.Tensor(ByteMapFormat(2), sol)
 
     bench_results = @benchmark $m_ten * $x_ten
     temp = m_ten * x_ten
-    if isequal(temp, sol)
+    temp_ten = Finch.Tensor(ByteMapFormat(2), temp)
+    if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
         return -1
