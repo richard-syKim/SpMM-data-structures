@@ -1,9 +1,9 @@
 using Pkg
 Pkg.add("StatsBase")
-Pkg.add("JSON")
+Pkg.add("JSON3")
 
 using StatsBase
-using JSON
+using JSON3
 
 const SIZE = 4096
 
@@ -35,16 +35,9 @@ while inx <= (SIZE / 2)
 
     sol = M_dense * X
 
+    JSON3.write(string("ben/m",  inx, ".json"), collect(eachrow(M_dense)))
 
-# sparse matrix -> store triplets (i, j, value)
-    open(string("ben/m",inx, ".json"), "w") do f
-        write(f, JSON.json(M_dense))
-    end
-
-    open(string("ben/sol", inx,".json"), "w") do f
-        write(f, JSON.json(sol))
-    end
-
+    JSON3.write(string("ben/sol", inx, ".json"), collect(eachrow(sol)))
 
     if cnt >= 16
         global cnt = 0
@@ -55,6 +48,4 @@ while inx <= (SIZE / 2)
     global cnt += 1
 end
 
-open("ben/x.json", "w") do f
-        write(f, JSON.json(X))
-    end
+JSON3.write("ben/x.json", collect(eachrow(X)))

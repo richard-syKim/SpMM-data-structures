@@ -2,70 +2,70 @@ import json
 import matplotlib.pyplot as plt
 
 
-with open("res/sparse-arrays-csc.json", "r") as f:
+with open("res/refine/sparse-arrays-csc.json", "r") as f:
     pairs_sa_csc = json.load(f)
 
 den_sa_csc = [pair[0] for pair in pairs_sa_csc]
 time_sa_csc = [pair[1] for pair in pairs_sa_csc]
 
 
-with open("res/suite-sparse-graph-blas.json", "r") as f:
+with open("res/refine/suite-sparse-graph-blas.json", "r") as f:
     pairs_ssgblas = json.load(f)
 
 den_ssgblas = [pair[0] for pair in pairs_ssgblas]
 time_ssgblas = [pair[1] for pair in pairs_ssgblas]
 
 
-with open("res/custom-coo.json", "r") as f:
+with open("res/refine/custom-coo.json", "r") as f:
     pairs_cus_coo = json.load(f)
 
 den_cus_coo = [pair[0] for pair in pairs_cus_coo]
 time_cus_coo = [pair[1] for pair in pairs_cus_coo]
 
 
-with open("res/finch-csc.json", "r") as f:
+with open("res/refine/finch-csc.json", "r") as f:
     pairs_fin_csc = json.load(f)
 
 den_fin_csc = [pair[0] for pair in pairs_fin_csc]
 time_fin_csc = [pair[1] for pair in pairs_fin_csc]
 
 
-with open("res/finch-csf.json", "r") as f:
+with open("res/refine/finch-csf.json", "r") as f:
     pairs_fin_csf = json.load(f)
 
 den_fin_csf = [pair[0] for pair in pairs_fin_csf]
 time_fin_csf = [pair[1] for pair in pairs_fin_csf]
 
 
-with open("res/finch-dcsc.json", "r") as f:
+with open("res/refine/finch-dcsc.json", "r") as f:
     pairs_fin_dcsc = json.load(f)
 
 den_fin_dcsc = [pair[0] for pair in pairs_fin_dcsc]
 time_fin_dcsc = [pair[1] for pair in pairs_fin_dcsc]
 
 
-with open("res/finch-dcsf.json", "r") as f:
+with open("res/refine/finch-dcsf.json", "r") as f:
     pairs_fin_dcsf = json.load(f)
 
 den_fin_dcsf = [pair[0] for pair in pairs_fin_dcsf]
 time_fin_dcsf = [pair[1] for pair in pairs_fin_dcsf]
 
 
-with open("res/finch-coo.json", "r") as f:
+with open("res/refine/finch-coo.json", "r") as f:
     pairs_fin_coo = json.load(f)
 
 den_fin_coo = [pair[0] for pair in pairs_fin_coo]
 time_fin_coo = [pair[1] for pair in pairs_fin_coo]
 
 
-with open("res/finch-hash.json", "r") as f:
+with open("res/refine/finch-hash.json", "r") as f:
     pairs_fin_hash = json.load(f)
 
 den_fin_hash = [pair[0] for pair in pairs_fin_hash]
 time_fin_hash = [pair[1] for pair in pairs_fin_hash]
 
 
-with open("res/finch-bm.json", "r") as f:
+with open("res/refine/finch-bm.json", "r") as f:
     pairs_fin_bm = json.load(f)
 
 den_fin_bm = [pair[0] for pair in pairs_fin_bm]

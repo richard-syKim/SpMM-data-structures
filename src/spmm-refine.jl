@@ -5,6 +5,7 @@ Pkg.add("BenchmarkTools")
 Pkg.add("SparseArrays")
 Pkg.add("SuiteSparseGraphBLAS")
 Pkg.add("Finch")
+Pkg.add("JSON3")
 
 using StatsBase
 using JSON
@@ -12,6 +13,7 @@ using BenchmarkTools
 using SparseArrays
 using SuiteSparseGraphBLAS
 using Finch
+using JSON3
 
 
 const SIZE = 4096
@@ -282,11 +284,18 @@ pairs_fin_dcsf = []
 pairs_fin_coo = []
 pairs_fin_hash = []
 pairs_fin_bytemap = []
-while inx <= (SIZE / 2)
-    M_dense = create_sparse_mat(inx)
-    X = randn(SIZE, SIZE)
 
-    sol = M_dense * X
+X = JSON3.read("ben/x.json", Vector{Vector{Float64}})
+X = reduce(hcat, X) |> permutedims
+
+
+while inx <= (SIZE / 2)
+    M_dense = JSON3.read(string("ben/m", inx, ".json"), Vector{Vector{Float64}})
+    M_dense = reduce(hcat, M_dense) |> permutedims
+
+    sol = JSON3.read(string("ben/sol", inx,".json"), Vector{Vector{Float64}})
+    sol = reduce(hcat, sol) |> permutedims
+
     println("Density: ", inx / SIZE)
 
     local sa_csc_val = sa_csc(M_dense, X, sol)
@@ -300,7 +309,7 @@ while inx <= (SIZE / 2)
 
     local ssgblas = ssgblas_mt(M_dense, X, sol)
     if ssgblas != -1
-        println("\tSSGBLAS: \t", ssgblas, "ns")
+        println("\tSSGBLAS: \t\t", ssgblas, "ns")
         push!(pairs_ssgblas, (inx / SIZE, ssgblas))
     else
         println("\tSSGBLAS: matmul resulted in wrong answer.")
@@ -309,7 +318,7 @@ while inx <= (SIZE / 2)
 
     local custom_coo_val = custom_coo(M_dense, X, sol)
     if custom_coo_val != -1
-        println("\tcustom COO: \t", custom_coo_val, "ns")
+        println("\tcustom COO: \t\t", custom_coo_val, "ns")
         push!(pairs_coo, (inx / SIZE, custom_coo_val))
     else
         println("\tcustom COO: matmul resulted in wrong answer.")
@@ -318,7 +327,7 @@ while inx <= (SIZE / 2)
 
     local fin_csc_val = fin_csc(M_dense, X, sol)
     if fin_csc_val != -1
-        println("\tfinch CSC: \t", fin_csc_val, "ns")
+        println("\tfinch CSC: \t\t", fin_csc_val, "ns")
         push!(pairs_fin_csc, (inx / SIZE, fin_csc_val))
     else
         println("\tfinch CSC: matmul resulted in wrong answer.")
@@ -327,7 +336,7 @@ while inx <= (SIZE / 2)
 
     local fin_csf_val = fin_csf(M_dense, X, sol)
     if fin_csf_val != -1
-        println("\tfinch CSF: \t", fin_csf_val, "ns")
+        println("\tfinch CSF: \t\t", fin_csf_val, "ns")
         push!(pairs_fin_csf, (inx / SIZE, fin_csf_val))
     else
         println("\tfinch CSF: matmul resulted in wrong answer.")
@@ -336,7 +345,7 @@ while inx <= (SIZE / 2)
 
     local fin_dcsc_val = fin_dcsc(M_dense, X, sol)
     if fin_dcsc_val != -1
-        println("\tfinch DCSC: \t", fin_dcsc_val, "ns")
+        println("\tfinch DCSC: \t\t", fin_dcsc_val, "ns")
         push!(pairs_fin_dcsc, (inx / SIZE, fin_dcsc_val))
     else
         println("\tfinch DCSC: matmul resulted in wrong answer.")
@@ -345,7 +354,7 @@ while inx <= (SIZE / 2)
 
     local fin_dcsf_val = fin_dcsf(M_dense, X, sol)
     if fin_dcsf_val != -1
-        println("\tfinch DCSF: \t", fin_dcsf_val, "ns")
+        println("\tfinch DCSF: \t\t", fin_dcsf_val, "ns")
         push!(pairs_fin_dcsf, (inx / SIZE, fin_dcsf_val))
     else
         println("\tfinch DCSF: matmul resulted in wrong answer.")
@@ -354,7 +363,7 @@ while inx <= (SIZE / 2)
 
     local fin_coo_val = fin_coo(M_dense, X, sol)
     if fin_coo_val != -1
-        println("\tfinch COO: \t", fin_coo_val, "ns")
+        println("\tfinch COO: \t\t", fin_coo_val, "ns")
         push!(pairs_fin_coo, (inx / SIZE, fin_coo_val))
     else
         println("\tfinch COO: matmul resulted in wrong answer.")
@@ -363,7 +372,7 @@ while inx <= (SIZE / 2)
 
     local fin_hash_val = fin_hash(M_dense, X, sol)
     if fin_hash_val != -1
-        println("\tfinch Hash: \t", fin_hash_val, "ns")
+        println("\tfinch Hash: \t\t", fin_hash_val, "ns")
         push!(pairs_fin_hash, (inx / SIZE, fin_hash_val))
     else
         println("\tfinch Hash: matmul resulted in wrong answer.")
@@ -372,7 +381,7 @@ while inx <= (SIZE / 2)
 
     local fin_bm_val = fin_bytemap(M_dense, X, sol)
     if fin_bm_val != -1
-        println("\tfinch Bytemap: \t", fin_bm_val, "ns")
+        println("\tfinch Bytemap: \t\t", fin_bm_val, "ns")
         push!(pairs_fin_bytemap, (inx / SIZE, fin_bm_val))
     else
         println("\tfinch Bytemap: matmul resulted in wrong answer.")
