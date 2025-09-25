@@ -2,10 +2,12 @@ using Pkg
 Pkg.add("StatsBase")
 Pkg.add("Finch")
 Pkg.add("JSON3")
+Pkg.add("BenchmarkTools")
 
 using StatsBase
 using Finch
 using JSON3
+using BenchmarkTools
 
 
 const SIZE = 4096
@@ -72,9 +74,11 @@ end
 
 
 function fin_csc(M, X, sol)
+    m_ten = Finch.Tensor(CSCFormat(), M)
+    x_ten = Finch.Tensor(CSCFormat(), X)
     sol_ten = Finch.Tensor(CSCFormat(), sol)
-    # temp = Finch.Tensor(CSCFormat(), zeros(Float64, SIZE, SIZE))
-    temp = zeros(Float64, SIZE, SIZE)
+    temp = Finch.Tensor(CSCFormat(), zeros(Float64, SIZE, SIZE))
+    # temp = zeros(Float64, SIZE, SIZE)
 
     # @finch begin
     #     for i in _
@@ -93,14 +97,10 @@ function fin_csc(M, X, sol)
 
 
     bench_results = @benchmark @finch begin
-            let m_ten = Finch.Tensor(CSCFormat(), M),
-                x_ten = Finch.Tensor(CSCFormat(), X)
-
-                for i in m_ten.row
-                    for j in m_ten.col
-                        for l in x_ten.col
-                            temp[i, l] += m_ten[i, j] * x_ten[j, l]
-                        end
+            for i in _
+                for j in _
+                    for l in _
+                        temp[i, l] += m_ten[i, j] * x_ten[j, l]
                     end
                 end
             end
@@ -132,7 +132,6 @@ while inx <= (SIZE / 2)
     # M_dense = reduce(hcat, M_dense) |> permutedims
 
     M_dense = randn(Float64, SIZE, SIZE)
-
 
     # sol = JSON3.read(string("ben/sol", inx,".json"), Vector{Vector{Float64}})
     # sol = reduce(hcat, sol) |> permutedims
