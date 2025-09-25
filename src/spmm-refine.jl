@@ -19,25 +19,6 @@ using JSON3
 const SIZE = 4096
 
 
-# s / SIZE is the density of the matrix
-function create_sparse_mat(s, M = SIZE)
-    # initialize u with random int
-    u = zeros(M, M)
-
-    # fill in s entries
-    all_coords = collect(Iterators.product(1:M, 1:M))
-    coords = sample(all_coords, s, replace=false)
-    
-    for coord in coords
-        i, j = coord
-        
-        u[i, j] = rand(Float64)
-    end
-
-    return u
-end
-
-
 function custom_coo_setup(M)
     u = []
 
@@ -77,7 +58,7 @@ function finch_isapprox(a, b; rtol=1e-8, atol=1e-12)
     end
 
     if a isa Float64 && b isa Float64
-        return abs(a - b) ≤ atol + rtol * max(abs(a), abs(b))
+        return abs(a - b) <= atol + rtol * max(abs(a), abs(b))
     elseif a isa Integer && b isa Integer
         return a == b
     elseif a isa AbstractArray && b isa AbstractArray
@@ -102,7 +83,7 @@ function finch_isapprox(a, b; rtol=1e-8, atol=1e-12)
         for I in CartesianIndices(size(a))
             av = a[I]
             bv = b[I]
-            if !(abs(av - bv) ≤ atol + rtol * max(abs(av), abs(bv)))
+            if !(abs(av - bv) <= atol + rtol * max(abs(av), abs(bv)))
                 # println("tensor value diff at $I: $av vs $bv")
                 return false
             end
