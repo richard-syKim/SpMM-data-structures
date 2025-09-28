@@ -5,24 +5,12 @@ Pkg.add("JSON3")
 using StatsBase
 using JSON3
 
-const SIZE = 4096
+const SIZE = 4096 * 2
 
-# s / SIZE is the density of the matrix
+# s is the density of the matrix
 function create_sparse_mat(s, M = SIZE)
-    # initialize u with random int
-    u = zeros(M, M)
 
-    # fill in s entries
-    all_coords = collect(Iterators.product(1:M, 1:M))
-    coords = sample(all_coords, s, replace=false)
-    
-    for coord in coords
-        i, j = coord
-        
-        u[i, j] = rand(Float64)
-    end
-
-    return u
+    return sprand(Float64, M, M, s)
 end
 
 inx = 0
