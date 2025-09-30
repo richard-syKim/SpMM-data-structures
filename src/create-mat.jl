@@ -19,10 +19,10 @@ function main()
     N = 250
     eps = 1e-6
 
-    indices = exp10.(range(log10(eps), 0, length=N))
+    indices = exp10.(range(log10(eps), log10(0.5), length=N))
 
     for i in indices
-        println("Wrote ben/m",  i, ".json and ben/sol", i, ".json")
+        println("Wrote ben/m",  i, ".bsp.h5 and ben/sol", i, ".bsp.h5")
         
         M_dense = fsprand(Float64, SIZE, SIZE, i)
 

@@ -1,19 +1,19 @@
 using Pkg
 Pkg.add("StatsBase")
-Pkg.add("JSON")
 Pkg.add("BenchmarkTools")
 Pkg.add("SparseArrays")
 Pkg.add("SuiteSparseGraphBLAS")
 Pkg.add("Finch")
 Pkg.add("JSON3")
+Pkg.add("HDF5")
 
 using StatsBase
-using JSON
 using BenchmarkTools
 using SparseArrays
 using SuiteSparseGraphBLAS
 using Finch
 using JSON3
+using HDF5
 
 
 const SIZE = 4096
@@ -57,66 +57,6 @@ function finch_isapprox(a, b; rtol=1e-8, atol=1e-12)
     end
     return true
 end
-
-
-# function isstruct(x)
-#     return x isa Any && !(x isa Number) && !(x isa AbstractArray)
-# end
-
-
-# function finch_isapprox(a, b; rtol=1e-8, atol=1e-12)
-#     if typeof(a) != typeof(b)
-#         # println("type diff: ", typeof(a), " vs ", typeof(b))
-#         return false
-#     end
-
-#     if a isa Float64 && b isa Float64
-#         return abs(a - b) <= atol + rtol * max(abs(a), abs(b))
-#     elseif a isa Integer && b isa Integer
-#         return a == b
-#     elseif a isa AbstractArray && b isa AbstractArray
-#         if size(a) != size(b)
-#             # println("size diff: ", size(a), " vs ", size(b))
-#             return false
-#         end
-
-#         for (x, y) in zip(a, b)
-#             if !finch_isapprox(x, y; rtol=rtol, atol=atol)
-#                 # println("element diff: ", x, " vs ", y)
-#                 return false
-#             end
-#         end
-#         return true
-
-#     elseif a isa Finch.Tensor && b isa Finch.Tensor
-#         if size(a) != size(b)
-#             # println("tensor size diff: ", size(a), " vs ", size(b))
-#             return false
-#         end
-#         for I in CartesianIndices(size(a))
-#             av = a[I]
-#             bv = b[I]
-#             if !(abs(av - bv) <= atol + rtol * max(abs(av), abs(bv)))
-#                 # println("tensor value diff at $I: $av vs $bv")
-#                 return false
-#             end
-#         end
-#         return true
-
-#     elseif isstruct(a) && isstruct(b)
-#         for name in fieldnames(typeof(a))
-#             ax = getfield(a, name)
-#             bx = getfield(b, name)
-#             if !finch_isapprox(ax, bx; rtol=rtol, atol=atol)
-#                 # println("field ", name, " diff: ", ax, " vs ", bx)
-#                 return false
-#             end
-#         end
-#         return true
-#     else
-#         return isequal(a, b)
-#     end
-# end
 
 
 function sa_csc(M, X, sol)
@@ -265,167 +205,236 @@ function fin_bytemap(M, X, sol)
 end
 
 
-inx = 0
-inc = 1
-cnt = 0
-pairs_sa_csc = []
-pairs_ssgblas = []
-pairs_coo = []
-pairs_fin_csc = []
-pairs_fin_csf = []
-pairs_fin_dcsc = []
-pairs_fin_dcsf = []
-pairs_fin_coo = []
-pairs_fin_hash = []
-pairs_fin_bytemap = []
+function main()
+    N = 250
+    eps = 1e-6
 
-X = JSON3.read("ben/x.json", Vector{Vector{Float64}})
-X = reduce(hcat, X) |> permutedims
+    indices = exp10.(range(log10(eps), log10(0.5), length=N))
 
+    X = Array(fread("ben/x.bsp.h5"))
 
-while inx <= (SIZE / 2)
-    M_dense = JSON3.read(string("ben/m", inx, ".json"), Vector{Vector{Float64}})
-    M_dense = reduce(hcat, M_dense) |> permutedims
+    # dense 
+    pairs_dense = []
+    println("For dense matrix multiplication:")
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-    sol = JSON3.read(string("ben/sol", inx,".json"), Vector{Vector{Float64}})
-    sol = reduce(hcat, sol) |> permutedims
+        println("\tDensity: ", i)
+        sol_calc = M_dense * X
 
-    println("Density: ", inx / SIZE)
+        bench_results = @benchmark $M_dense * $X
 
-    local sa_csc_val = sa_csc(M_dense, X, sol)
-    if sa_csc_val != -1
-        println("\tSparseArrays CSC: \t", sa_csc_val, "ns")
-        push!(pairs_sa_csc, (inx / SIZE, sa_csc_val))
-    else
-        println("\tSparseArray CSC: matmul resulted in wrong answer.")
+        if isapprox(sol_calc, sol; rtol=1e-8, atol=1e-12)
+            println("\t\tTime: \t", minimum(bench_results.times), "ns")
+            push!(pairs_dense, (i, minimum(bench_results.times)))
+        else
+            println("\t\tWrong result.")
+        end
+    end
+
+    open("res/0929/dense.json", "w") do f
+        JSON3.write(f, pairs_dense)
     end
 
 
-    local ssgblas = ssgblas_mt(M_dense, X, sol)
-    if ssgblas != -1
-        println("\tSSGBLAS: \t\t", ssgblas, "ns")
-        push!(pairs_ssgblas, (inx / SIZE, ssgblas))
-    else
-        println("\tSSGBLAS: matmul resulted in wrong answer.")
+    # sparse arrays
+    pairs_sa_csc = []
+    println("For SparseArrays CSC multiplication:")
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("\tDensity: ", i)
+
+        local sa_csc_val = sa_csc(M_dense, X, sol)
+        if sa_csc_val != -1
+            println("\t\tTime: \t", sa_csc_val, "ns")
+            push!(pairs_sa_csc, (i, sa_csc_val))
+        else
+            println("\t\tSparseArray CSC: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/sparse-arrays-csc.json", "w") do f
+        JSON3.write(f, pairs_sa_csc)
     end
 
 
-    local custom_coo_val = custom_coo(M_dense, X, sol)
-    if custom_coo_val != -1
-        println("\tcustom COO: \t\t", custom_coo_val, "ns")
-        push!(pairs_coo, (inx / SIZE, custom_coo_val))
-    else
-        println("\tcustom COO: matmul resulted in wrong answer.")
+    # custom coo
+    pairs_coo = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local custom_coo_val = custom_coo(M_dense, X, sol)
+        if custom_coo_val != -1
+            println("\tcustom COO: \t\t", custom_coo_val, "ns")
+            push!(pairs_coo, (i, custom_coo_val))
+        else
+            println("\tcustom COO: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/custom-coo.json", "w") do f
+        JSON3.write(f, pairs_coo)
     end
 
 
-    local fin_csc_val = fin_csc(M_dense, X, sol)
-    if fin_csc_val != -1
-        println("\tfinch CSC: \t\t", fin_csc_val, "ns")
-        push!(pairs_fin_csc, (inx / SIZE, fin_csc_val))
-    else
-        println("\tfinch CSC: matmul resulted in wrong answer.")
+    # finch csc 
+    pairs_fin_csc = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local fin_csc_val = fin_csc(M_dense, X, sol)
+        if fin_csc_val != -1
+            println("\tfinch CSC: \t\t", fin_csc_val, "ns")
+            push!(pairs_fin_csc, (i, fin_csc_val))
+        else
+            println("\tfinch CSC: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/finch-csc.json", "w") do f
+        JSON3.write(f, pairs_fin_csc)
     end
 
 
-    local fin_csf_val = fin_csf(M_dense, X, sol)
-    if fin_csf_val != -1
-        println("\tfinch CSF: \t\t", fin_csf_val, "ns")
-        push!(pairs_fin_csf, (inx / SIZE, fin_csf_val))
-    else
-        println("\tfinch CSF: matmul resulted in wrong answer.")
+    # finch csf
+    pairs_fin_csf = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local fin_csf_val = fin_csf(M_dense, X, sol)
+        if fin_csf_val != -1
+            println("\tfinch CSF: \t\t", fin_csf_val, "ns")
+            push!(pairs_fin_csf, (i, fin_csf_val))
+        else
+            println("\tfinch CSF: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/finch-csf.json", "w") do f
+        JSON3.write(f, pairs_fin_csf)
     end
 
 
-    local fin_dcsc_val = fin_dcsc(M_dense, X, sol)
-    if fin_dcsc_val != -1
-        println("\tfinch DCSC: \t\t", fin_dcsc_val, "ns")
-        push!(pairs_fin_dcsc, (inx / SIZE, fin_dcsc_val))
-    else
-        println("\tfinch DCSC: matmul resulted in wrong answer.")
+    # finch dcsc
+    pairs_fin_dcsc = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local fin_dcsc_val = fin_dcsc(M_dense, X, sol)
+        if fin_dcsc_val != -1
+            println("\tfinch DCSC: \t\t", fin_dcsc_val, "ns")
+            push!(pairs_fin_dcsc, (i, fin_dcsc_val))
+        else
+            println("\tfinch DCSC: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/finch-dcsc.json", "w") do f
+        JSON3.write(f, pairs_fin_dcsc)
     end
 
 
-    local fin_dcsf_val = fin_dcsf(M_dense, X, sol)
-    if fin_dcsf_val != -1
-        println("\tfinch DCSF: \t\t", fin_dcsf_val, "ns")
-        push!(pairs_fin_dcsf, (inx / SIZE, fin_dcsf_val))
-    else
-        println("\tfinch DCSF: matmul resulted in wrong answer.")
+    # finch dcsf
+    pairs_fin_dcsf = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local fin_dcsf_val = fin_dcsf(M_dense, X, sol)
+        if fin_dcsf_val != -1
+            println("\tfinch DCSF: \t\t", fin_dcsf_val, "ns")
+            push!(pairs_fin_dcsf, (i, fin_dcsf_val))
+        else
+            println("\tfinch DCSF: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/finch-dcsf.json", "w") do f
+        JSON3.write(f, pairs_fin_dcsf)
     end
 
 
-    local fin_coo_val = fin_coo(M_dense, X, sol)
-    if fin_coo_val != -1
-        println("\tfinch COO: \t\t", fin_coo_val, "ns")
-        push!(pairs_fin_coo, (inx / SIZE, fin_coo_val))
-    else
-        println("\tfinch COO: matmul resulted in wrong answer.")
+    # finch coo
+    pairs_fin_coo = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local fin_coo_val = fin_coo(M_dense, X, sol)
+        if fin_coo_val != -1
+            println("\tfinch COO: \t\t", fin_coo_val, "ns")
+            push!(pairs_fin_coo, (i, fin_coo_val))
+        else
+            println("\tfinch COO: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/finch-coo.json", "w") do f
+        JSON3.write(f, pairs_fin_coo)
     end
 
 
-    local fin_hash_val = fin_hash(M_dense, X, sol)
-    if fin_hash_val != -1
-        println("\tfinch Hash: \t\t", fin_hash_val, "ns")
-        push!(pairs_fin_hash, (inx / SIZE, fin_hash_val))
-    else
-        println("\tfinch Hash: matmul resulted in wrong answer.")
+    # finch hash
+    pairs_fin_hash = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local fin_hash_val = fin_hash(M_dense, X, sol)
+        if fin_hash_val != -1
+            println("\tfinch Hash: \t\t", fin_hash_val, "ns")
+            push!(pairs_fin_hash, (i, fin_hash_val))
+        else
+            println("\tfinch Hash: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/0929/finch-hash.json", "w") do f
+        JSON3.write(f, pairs_fin_hash)
     end
 
 
-    local fin_bm_val = fin_bytemap(M_dense, X, sol)
-    if fin_bm_val != -1
-        println("\tfinch Bytemap: \t\t", fin_bm_val, "ns")
-        push!(pairs_fin_bytemap, (inx / SIZE, fin_bm_val))
-    else
-        println("\tfinch Bytemap: matmul resulted in wrong answer.")
+    # finch bytemap
+    pairs_fin_bytemap = []
+    for i in indices
+        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+
+        println("Density: ", i)
+
+        local fin_bm_val = fin_bytemap(M_dense, X, sol)
+        if fin_bm_val != -1
+            println("\tfinch Bytemap: \t\t", fin_bm_val, "ns")
+            push!(pairs_fin_bytemap, (i, fin_bm_val))
+        else
+            println("\tfinch Bytemap: matmul resulted in wrong answer.")
+        end
     end
 
-    if cnt >= 16
-        global cnt = 0
-        global inc *= 2
+    open("res/0929/finch-bm.json", "w") do f
+        JSON3.write(f, pairs_fin_bytemap)
     end
-
-    global inx += inc
-    global cnt += 1
 end
 
-open("res/sparse-arrays-csc.json", "w") do f
-    write(f, JSON.json(pairs_sa_csc))
-end
-
-open("res/suite-sparse-graph-blas.json", "w") do f
-    write(f, JSON.json(pairs_ssgblas))
-end
-
-open("res/custom-coo.json", "w") do f
-    write(f, JSON.json(pairs_coo))
-end
-
-open("res/finch-csc.json", "w") do f
-    write(f, JSON.json(pairs_fin_csc))
-end
-
-open("res/finch-csf.json", "w") do f
-    write(f, JSON.json(pairs_fin_csf))
-end
-
-open("res/finch-dcsc.json", "w") do f
-    write(f, JSON.json(pairs_fin_dcsc))
-end
-
-open("res/finch-dcsf.json", "w") do f
-    write(f, JSON.json(pairs_fin_dcsf))
-end
-
-open("res/finch-coo.json", "w") do f
-    write(f, JSON.json(pairs_fin_coo))
-end
-
-open("res/finch-hash.json", "w") do f
-    write(f, JSON.json(pairs_fin_hash))
-end
-
-open("res/finch-bm.json", "w") do f
-    write(f, JSON.json(pairs_fin_bytemap))
-end
+main()
