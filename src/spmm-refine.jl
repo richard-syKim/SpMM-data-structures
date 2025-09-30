@@ -16,7 +16,8 @@ using JSON3
 using HDF5
 
 
-const SIZE = 4096
+const SIZE = 8192
+const SKINNY = 100
 
 
 function custom_coo_setup(M)
@@ -34,10 +35,10 @@ function custom_coo_setup(M)
 end
 
 function custom_coo_mul(M, X)
-    y = zeros(SIZE, SIZE)
+    y = zeros(SIZE, SKINNY)
 
     for (i, j, v) in M
-        for d in 1:SIZE
+        for d in 1:SKINNY
             y[i, d] += v * X[j, d]
         end
     end
@@ -45,17 +46,63 @@ function custom_coo_mul(M, X)
     return y
 end
 
+
+function isstruct(x)
+    return x isa Any && !(x isa Number) && !(x isa AbstractArray)
+end
+
 function finch_isapprox(a, b; rtol=1e-8, atol=1e-12)
-    @finch begin
-        for i in _
-            for j in _
-                if !(abs(a[i, j] - b[i, j]) <= atol + rtol * max(abs(a[i, j]), abs(b[i, j])))
-                    return false
-                end
+    if typeof(a) != typeof(b)
+        # println("type diff: ", typeof(a), " vs ", typeof(b))
+        return false
+    end
+
+    if a isa Float64 && b isa Float64
+        return abs(a - b) <= atol + rtol * max(abs(a), abs(b))
+    elseif a isa Integer && b isa Integer
+        return a == b
+    elseif a isa AbstractArray && b isa AbstractArray
+        if size(a) != size(b)
+            # println("size diff: ", size(a), " vs ", size(b))
+            return false
+        end
+
+        for (x, y) in zip(a, b)
+            if !finch_isapprox(x, y; rtol=rtol, atol=atol)
+                # println("element diff: ", x, " vs ", y)
+                return false
             end
         end
+        return true
+
+    elseif a isa Finch.Tensor && b isa Finch.Tensor
+        if size(a) != size(b)
+            # println("tensor size diff: ", size(a), " vs ", size(b))
+            return false
+        end
+        for I in CartesianIndices(size(a))
+            av = a[I]
+            bv = b[I]
+            if !(abs(av - bv) <= atol + rtol * max(abs(av), abs(bv)))
+                # println("tensor value diff at $I: $av vs $bv")
+                return false
+            end
+        end
+        return true
+
+    elseif isstruct(a) && isstruct(b)
+        for name in fieldnames(typeof(a))
+            ax = getfield(a, name)
+            bx = getfield(b, name)
+            if !finch_isapprox(ax, bx; rtol=rtol, atol=atol)
+                # println("field ", name, " diff: ", ax, " vs ", bx)
+                return false
+            end
+        end
+        return true
+    else
+        return isequal(a, b)
     end
-    return true
 end
 
 
@@ -217,10 +264,11 @@ function main()
     pairs_dense = []
     println("For dense matrix multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
         sol_calc = M_dense * X
 
         bench_results = @benchmark $M_dense * $X
@@ -242,10 +290,11 @@ function main()
     pairs_sa_csc = []
     println("For SparseArrays CSC multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+        M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local sa_csc_val = sa_csc(M_dense, X, sol)
         if sa_csc_val != -1
@@ -263,18 +312,20 @@ function main()
 
     # custom coo
     pairs_coo = []
+    println("For custom coo multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local custom_coo_val = custom_coo(M_dense, X, sol)
         if custom_coo_val != -1
-            println("\tcustom COO: \t\t", custom_coo_val, "ns")
+            println("\t\tTime: \t", custom_coo_val, "ns")
             push!(pairs_coo, (i, custom_coo_val))
         else
-            println("\tcustom COO: matmul resulted in wrong answer.")
+            println("\t\tcustom COO: matmul resulted in wrong answer.")
         end
     end
 
@@ -285,18 +336,20 @@ function main()
 
     # finch csc 
     pairs_fin_csc = []
+    println("For finch csc multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local fin_csc_val = fin_csc(M_dense, X, sol)
         if fin_csc_val != -1
-            println("\tfinch CSC: \t\t", fin_csc_val, "ns")
+            println("\t\tTime: \t", fin_csc_val, "ns")
             push!(pairs_fin_csc, (i, fin_csc_val))
         else
-            println("\tfinch CSC: matmul resulted in wrong answer.")
+            println("\t\tfinch CSC: matmul resulted in wrong answer.")
         end
     end
 
@@ -307,18 +360,20 @@ function main()
 
     # finch csf
     pairs_fin_csf = []
+    println("For finch csf multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local fin_csf_val = fin_csf(M_dense, X, sol)
         if fin_csf_val != -1
-            println("\tfinch CSF: \t\t", fin_csf_val, "ns")
+            println("\t\tTime: \t", fin_csf_val, "ns")
             push!(pairs_fin_csf, (i, fin_csf_val))
         else
-            println("\tfinch CSF: matmul resulted in wrong answer.")
+            println("\t\tfinch CSF: matmul resulted in wrong answer.")
         end
     end
 
@@ -329,18 +384,20 @@ function main()
 
     # finch dcsc
     pairs_fin_dcsc = []
+    println("For finch dcsc multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local fin_dcsc_val = fin_dcsc(M_dense, X, sol)
         if fin_dcsc_val != -1
-            println("\tfinch DCSC: \t\t", fin_dcsc_val, "ns")
+            println("\t\tTime: \t", fin_dcsc_val, "ns")
             push!(pairs_fin_dcsc, (i, fin_dcsc_val))
         else
-            println("\tfinch DCSC: matmul resulted in wrong answer.")
+            println("\t\tfinch DCSC: matmul resulted in wrong answer.")
         end
     end
 
@@ -351,11 +408,13 @@ function main()
 
     # finch dcsf
     pairs_fin_dcsf = []
+    println("For finch dcsf multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local fin_dcsf_val = fin_dcsf(M_dense, X, sol)
         if fin_dcsf_val != -1
@@ -373,11 +432,13 @@ function main()
 
     # finch coo
     pairs_fin_coo = []
+    println("For finch coo multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local fin_coo_val = fin_coo(M_dense, X, sol)
         if fin_coo_val != -1
@@ -395,11 +456,13 @@ function main()
 
     # finch hash
     pairs_fin_hash = []
+    println("For finch hash multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local fin_hash_val = fin_hash(M_dense, X, sol)
         if fin_hash_val != -1
@@ -417,11 +480,13 @@ function main()
 
     # finch bytemap
     pairs_fin_bytemap = []
+    println("For finch bytemap multiplication:")
     for i in indices
-        M_dense = Array(fread(string("ben/m", i, ".bsp.h5")))
+                M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("Density: ", i)
+        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        M_dense = Array(M_dense)
 
         local fin_bm_val = fin_bytemap(M_dense, X, sol)
         if fin_bm_val != -1
