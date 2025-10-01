@@ -151,11 +151,20 @@ function fin_csc(M, X, sol)
     x_ten = Finch.Tensor(CSCFormat(), X)
     sol_ten = Finch.Tensor(CSCFormat(), sol)
 
-    bench_results = @benchmark $m_ten * $x_ten
-    temp = m_ten * x_ten
+    t = @belapsed @finch begin
+        temp .= 0
+        for i = _
+            for j = _
+                for k = _
+                    temp[i, k] += m_ten[i, j] * x_ten[j, k]
+                end
+            end
+        end
+    end
+
     temp_ten = Finch.Tensor(CSCFormat(), temp)
     if finch_isapprox(temp_ten, sol_ten; rtol=1e-8, atol=1e-12)
-        return (minimum(bench_results.times))
+        return t
     else
         return -1
     end
@@ -267,7 +276,7 @@ function main()
         M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
         sol_calc = M_dense * X
 
@@ -293,7 +302,7 @@ function main()
         M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local sa_csc_val = sa_csc(M_dense, X, sol)
@@ -317,7 +326,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local custom_coo_val = custom_coo(M_dense, X, sol)
@@ -341,7 +350,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local fin_csc_val = fin_csc(M_dense, X, sol)
@@ -365,7 +374,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local fin_csf_val = fin_csf(M_dense, X, sol)
@@ -389,7 +398,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local fin_dcsc_val = fin_dcsc(M_dense, X, sol)
@@ -413,7 +422,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local fin_dcsf_val = fin_dcsf(M_dense, X, sol)
@@ -437,7 +446,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local fin_coo_val = fin_coo(M_dense, X, sol)
@@ -461,7 +470,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local fin_hash_val = fin_hash(M_dense, X, sol)
@@ -485,7 +494,7 @@ function main()
                 M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
-        println("\tDensity: ", i, "\tnnz: ", nnz(M_dense))
+        println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
         local fin_bm_val = fin_bytemap(M_dense, X, sol)
