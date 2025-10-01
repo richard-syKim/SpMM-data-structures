@@ -43,32 +43,32 @@ den_fin_dcsc = [pair[0] for pair in pairs_fin_dcsc]
 time_fin_dcsc = [pair[1] for pair in pairs_fin_dcsc]
 
 
-# with open("res/0929/finch-dcsf.json", "r") as f:
-#     pairs_fin_dcsf = json.load(f)
+with open("res/0929/finch-dcsf.json", "r") as f:
+    pairs_fin_dcsf = json.load(f)
 
-# den_fin_dcsf = [pair[0] for pair in pairs_fin_dcsf]
-# time_fin_dcsf = [pair[1] for pair in pairs_fin_dcsf]
+den_fin_dcsf = [pair[0] for pair in pairs_fin_dcsf]
+time_fin_dcsf = [pair[1] for pair in pairs_fin_dcsf]
                  
 
-# with open("res/0929/finch-coo.json", "r") as f:
-#     pairs_fin_coo = json.load(f)
+with open("res/0929/finch-coo.json", "r") as f:
+    pairs_fin_coo = json.load(f)
 
-# den_fin_coo = [pair[0] for pair in pairs_fin_coo]
-# time_fin_coo = [pair[1] for pair in pairs_fin_coo]
-
-
-# with open("res/0929/finch-hash.json", "r") as f:
-#     pairs_fin_hash = json.load(f)
-
-# den_fin_hash = [pair[0] for pair in pairs_fin_hash]
-# time_fin_hash = [pair[1] for pair in pairs_fin_hash]
+den_fin_coo = [pair[0] for pair in pairs_fin_coo]
+time_fin_coo = [pair[1] for pair in pairs_fin_coo]
 
 
-# with open("res/0929/finch-bm.json", "r") as f:
-#     pairs_fin_bm = json.load(f)
+with open("res/0929/finch-hash.json", "r") as f:
+    pairs_fin_hash = json.load(f)
 
-# den_fin_bm = [pair[0] for pair in pairs_fin_bm]
-# time_fin_bm = [pair[1] for pair in pairs_fin_bm]
+den_fin_hash = [pair[0] for pair in pairs_fin_hash]
+time_fin_hash = [pair[1] for pair in pairs_fin_hash]
+
+
+with open("res/0929/finch-bm.json", "r") as f:
+    pairs_fin_bm = json.load(f)
+
+den_fin_bm = [pair[0] for pair in pairs_fin_bm]
+time_fin_bm = [pair[1] for pair in pairs_fin_bm]
 
 
 
@@ -111,10 +111,10 @@ plt.scatter(den_sa_csc, time_sa_csc, s=5, label='sparse-arrays-csc', color='blue
 plt.scatter(den_fin_csc, time_fin_csc, s=5, label='finch-csc', color='red')
 plt.scatter(den_fin_csf, time_fin_csf, s=5, label='finch-csf', color='purple')
 plt.scatter(den_fin_dcsc, time_fin_dcsc, s=5, label='finch-dcsc', color='brown')
-# plt.scatter(den_fin_dcsf, time_fin_dcsf, s=5, label='finch-dcsf', color='pink')
-# plt.scatter(den_fin_coo, time_fin_coo, s=5, label='finch-coo', color='gray')
-# plt.scatter(den_fin_hash, time_fin_hash, s=5, label='finch-hash', color='cyan')
-# plt.scatter(den_fin_bm, time_fin_bm, s=5, label='finch-bm', color='magenta')
+plt.scatter(den_fin_dcsf, time_fin_dcsf, s=5, label='finch-dcsf', color='pink')
+plt.scatter(den_fin_coo, time_fin_coo, s=5, label='finch-coo', color='gray')
+plt.scatter(den_fin_hash, time_fin_hash, s=5, label='finch-hash', color='cyan')
+plt.scatter(den_fin_bm, time_fin_bm, s=5, label='finch-bm', color='magenta')
 
 plt.legend()
 plt.xlabel('density')
