@@ -15,7 +15,7 @@ den_sa_csc = [pair[0] for pair in pairs_sa_csc]
 time_sa_csc = [pair[1] for pair in pairs_sa_csc]
 
 
-with open("res/0929/custom-coo.json", "r") as f:
+with open("res/1001/custom-coo-opt.json", "r") as f:
     pairs_cus_coo = json.load(f)
 
 den_cus_coo = [pair[0] for pair in pairs_cus_coo]
@@ -71,51 +71,52 @@ den_fin_bm_mac = [pair[0] for pair in pairs_fin_bm_mac]
 time_fin_bm_mac = [pair[1] for pair in pairs_fin_bm_mac]
 
 
-ratio = 0.75
+start = 0.6
+end = 0.8
 
-den_dense = den_dense[:int(len(den_dense) * ratio)]
-time_dense = time_dense[:int(len(time_dense) * ratio)]
+den_dense = den_dense[int(len(den_dense) * start):int(len(den_dense) * end)]
+time_dense = time_dense[int(len(time_dense) * start):int(len(time_dense) * end)]
 
-den_sa_csc = den_sa_csc[:int(len(den_sa_csc) * ratio)]
-time_sa_csc = time_sa_csc[:int(len(time_sa_csc) * ratio)]
+den_sa_csc = den_sa_csc[int(len(den_sa_csc) * start):int(len(den_sa_csc) * end)]
+time_sa_csc = time_sa_csc[int(len(time_sa_csc) * start):int(len(time_sa_csc) * end)]
 
-den_cus_coo = den_cus_coo[:int(len(den_cus_coo) * ratio)]
-time_cus_coo = time_cus_coo[:int(len(time_cus_coo) * ratio)]
+den_cus_coo = den_cus_coo[int(len(den_cus_coo) * start):int(len(den_cus_coo) * end)]
+time_cus_coo = time_cus_coo[int(len(time_cus_coo) * start):int(len(time_cus_coo) * end)]
 
-den_fin_csc_mac = den_fin_csc_mac[:int(len(den_fin_csc_mac) * ratio)]
-time_fin_csc_mac = time_fin_csc_mac[:int(len(time_fin_csc_mac) * ratio)]
+den_fin_csc_mac = den_fin_csc_mac[int(len(den_fin_csc_mac) * start):int(len(den_fin_csc_mac) * end)]
+time_fin_csc_mac = time_fin_csc_mac[int(len(time_fin_csc_mac) * start):int(len(time_fin_csc_mac) * end)]
 
-den_fin_csf_mac = den_fin_csf_mac[:int(len(den_fin_csf_mac) * ratio)]
-time_fin_csf_mac = time_fin_csf_mac[:int(len(time_fin_csf_mac) * ratio)]
+den_fin_csf_mac = den_fin_csf_mac[int(len(den_fin_csf_mac) * start):int(len(den_fin_csf_mac) * end)]
+time_fin_csf_mac = time_fin_csf_mac[int(len(time_fin_csf_mac) * start):int(len(time_fin_csf_mac) * end)]
 
-den_fin_dcsc_mac = den_fin_dcsc_mac[:int(len(den_fin_dcsc_mac) * ratio)]
-time_fin_dcsc_mac = time_fin_dcsc_mac[:int(len(time_fin_dcsc_mac) * ratio)]
+den_fin_dcsc_mac = den_fin_dcsc_mac[int(len(den_fin_dcsc_mac) * start):int(len(den_fin_dcsc_mac) * end)]
+time_fin_dcsc_mac = time_fin_dcsc_mac[int(len(time_fin_dcsc_mac) * start):int(len(time_fin_dcsc_mac) * end)]
 
-den_fin_dcsf_mac = den_fin_dcsf_mac[:int(len(den_fin_dcsf_mac) * ratio)]
-time_fin_dcsf_mac = time_fin_dcsf_mac[:int(len(time_fin_dcsf_mac) * ratio)]
+den_fin_dcsf_mac = den_fin_dcsf_mac[int(len(den_fin_dcsf_mac) * start):int(len(den_fin_dcsf_mac) * end)]
+time_fin_dcsf_mac = time_fin_dcsf_mac[int(len(time_fin_dcsf_mac) * start):int(len(time_fin_dcsf_mac) * end)]
 
-den_fin_coo_mac = den_fin_coo_mac[:int(len(den_fin_coo_mac) * ratio)]
-time_fin_coo_mac = time_fin_coo_mac[:int(len(time_fin_coo_mac) * ratio)]
+den_fin_coo_mac = den_fin_coo_mac[int(len(den_fin_coo_mac) * start):int(len(den_fin_coo_mac) * end)]
+time_fin_coo_mac = time_fin_coo_mac[int(len(time_fin_coo_mac) * start):int(len(time_fin_coo_mac) * end)]
 
-den_fin_hash_mac = den_fin_hash_mac[:int(len(den_fin_hash_mac) * ratio)]
-time_fin_hash_mac = time_fin_hash_mac[:int(len(time_fin_hash_mac) * ratio)]
+den_fin_hash_mac = den_fin_hash_mac[int(len(den_fin_hash_mac) * start):int(len(den_fin_hash_mac) * end)]
+time_fin_hash_mac = time_fin_hash_mac[int(len(time_fin_hash_mac) * start):int(len(time_fin_hash_mac) * end)]
 
-den_fin_bm_mac = den_fin_bm_mac[:int(len(den_fin_bm_mac) * ratio)]
-time_fin_bm_mac = time_fin_bm_mac[:int(len(time_fin_bm_mac) * ratio)]
+den_fin_bm_mac = den_fin_bm_mac[int(len(den_fin_bm_mac) * start):int(len(den_fin_bm_mac) * end)]
+time_fin_bm_mac = time_fin_bm_mac[int(len(time_fin_bm_mac) * start):int(len(time_fin_bm_mac) * end)]
 
 
 plt.figure(figsize=(10, 6))
 
 plt.scatter(den_dense, time_dense, s=3, label='dense', color='orange')
 plt.scatter(den_sa_csc, time_sa_csc, s=3, label='sparse-arrays-csc', color='blue')
-plt.scatter(den_cus_coo, time_cus_coo, s=3, label='custom-coo', color='green')
+# plt.scatter(den_cus_coo, time_cus_coo, s=3, label='custom-coo', color='green')
 plt.scatter(den_fin_csc_mac, time_fin_csc_mac, s=3, label='finch-csc', color='red')
 plt.scatter(den_fin_csf_mac, time_fin_csf_mac, s=3, label='finch-csf', color='purple')
 plt.scatter(den_fin_dcsc_mac, time_fin_dcsc_mac, s=3, label='finch-dcsc', color='brown')
 plt.scatter(den_fin_dcsf_mac, time_fin_dcsf_mac, s=3, label='finch-dcsf', color='pink')
 plt.scatter(den_fin_coo_mac, time_fin_coo_mac, s=3, label='finch-coo', color='gray')
 plt.scatter(den_fin_hash_mac, time_fin_hash_mac, s=3, label='finch-hash', color='olive')
-plt.scatter(den_fin_bm_mac, time_fin_bm_mac, s=3, label='finch-bm', color='cyan')
+# plt.scatter(den_fin_bm_mac, time_fin_bm_mac, s=3, label='finch-bm', color='cyan')
 
 plt.legend()
 plt.xlabel('density')
@@ -124,4 +125,4 @@ plt.title('Scatter plot of SpMM performance with finch macros')
 
 plt.xscale('log')
 plt.yscale('log')
-plt.savefig("img/1001/spmm-plot-log-mac-.75.png")
+plt.savefig("img/1001/spmm-plot-log-.6-.8.png")
