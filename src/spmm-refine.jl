@@ -21,7 +21,8 @@ const SKINNY = 100
 
 
 function custom_coo_setup(M)
-    u = []
+    # define the exact type of u to remove "Any"
+    u = Vector{Tuple{Int, Int, Float64}}()
 
     for i in 1:SIZE
         for j in 1:SIZE
@@ -35,18 +36,72 @@ function custom_coo_setup(M)
 end
 
 function custom_coo_mul(M, X)
-    y = zeros(SIZE, SKINNY)
-
-    # avoid untyped global variable
-    for (i, j, v) in M::Vector{Any}
-        for d in 1:SKINNY
-            # use @inbound to avoid bound check
-            # @fastmath to allow floating point optimizations that are correct for real numbers
-            @fastmath @inbounds y[i, d] += v * X[j, d]
+    # use @inbound to avoid bound check when accessing indices (y[i, d], X[j, d])
+    @inbounds begin
+        # @fastmath to allow floating point optimizations that are correct for real numbers
+        @fastmath begin
+            y = zeros(size(X, 1), size(X, 2))
+            s = size(X, 2)
+            for (i, j, v) in M
+                for d in 1:s
+                    y[i, d] += v * X[j, d]
+                end
+            end
         end
     end
-
     return y
+end
+
+function custom_coo_sep_mul(I, J, V, X)
+    @inbounds begin
+        @fastmath begin
+            y = zeros(size(X, 1), size(X, 2))
+            size_m = size(I, 1)
+            s = size(X, 2)
+            for p in 1:size_m
+                i_p = I[p]
+                j_p = J[p]
+                v_p = V[p]
+
+                # add potential SIMD
+                @simd for d in 1:s
+                    y[i_p, d] += v_p * X[j_p, d]
+                end
+            end
+        end
+    end
+    return y
+end
+
+
+function custom_csc_mul(A::SparseMatrixCSC, X)
+    @inbounds begin
+        @fastmath begin
+            # work with permuted matrix for row-major
+            X_t = permutedims(X)
+            ptr = A.colptr
+            idx = A.rowval
+            val = A.nzval
+
+            m, n = size(A)
+            n, d = size(X)
+
+            Y_t = zeros(d, m)
+
+            for j in 1:n
+                st = ptr[j]
+                ed = ptr[j+1] - 1
+                for p in st:ed
+                    i = idx[p]
+                    v = val[p]
+                    for k in 1:d
+                        Y_t[k, i] += v * X_t[k, j]
+                    end
+                end
+            end
+        end
+    end
+    return permutedims(Y_t)
 end
 
 
@@ -177,6 +232,8 @@ function main()
     open("res/1001/custom-coo-opt.json", "w") do f
         JSON3.write(f, pairs_coo)
     end
+
+
 end
 
 main()
