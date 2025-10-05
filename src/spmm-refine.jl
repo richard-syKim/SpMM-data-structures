@@ -24,8 +24,8 @@ function custom_coo_setup(M)
     # define the exact type of u to remove "Any"
     u = Vector{Tuple{Int, Int, Float64}}()
 
-    for i in 1:SIZE
-        for j in 1:SIZE
+    for i in 1:size(M, 1)
+        for j in 1:size(M, 2)
             if M[i, j] != 0
                 push!(u, (i, j, M[i, j]))
             end
@@ -52,6 +52,20 @@ function custom_coo_mul(M, X)
     return y
 end
 
+
+function custom_coo(M, X, sol)
+    m_coo = custom_coo_setup(M)
+
+    bench_results = @benchmark custom_coo_mul($m_coo, $X)
+    temp = custom_coo_mul(m_coo, X)
+    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
+        return (minimum(bench_results.times))
+    else
+        return -1
+    end
+end
+
+
 function custom_coo_sep_mul(I, J, V, X)
     @inbounds begin
         @fastmath begin
@@ -71,6 +85,25 @@ function custom_coo_sep_mul(I, J, V, X)
         end
     end
     return y
+end
+
+
+function unzip(A)
+    return map(x->getfield.(A, x), fieldnames(eltype(A)))
+end
+
+
+function custom_coo_sep(M, X, sol)
+    m_coo = custom_coo_setup(M)
+    I, J, V = unzip(m_coo)
+
+    bench_results = @benchmark custom_coo_sep_mul($I, $J, $V, $X)
+    temp = custom_coo_sep_mul(I, J, V, X)
+    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
+        return (minimum(bench_results.times))
+    else
+        return -1
+    end
 end
 
 
@@ -105,6 +138,19 @@ function custom_csc_mul(A::SparseMatrixCSC, X)
 end
 
 
+function custom_csc(M, X, sol)
+    m_csc = sparse(M)
+
+    bench_results = @benchmark custom_csc_mul($m_csc, $X)
+    temp = custom_csc_mul(m_csc, X)
+    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
+        return (minimum(bench_results.times))
+    else
+        return -1
+    end
+end
+
+
 function sa_csc(M, X, sol)
     m_sparse = sparse(M)
 
@@ -132,39 +178,27 @@ function ssgblas_mt(M, X, sol)
 end
 
 
-function custom_coo(M, X, sol)
-    m_coo = custom_coo_setup(M)
-
-    bench_results = @benchmark custom_coo_mul($m_coo, $X)
-    temp = custom_coo_mul(m_coo, X)
-    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
-        return (minimum(bench_results.times))
-    else
-        return -1
-    end
-end
-
-
 function main()
     N = 250
     eps = 1e-6
 
     indices = exp10.(range(log10(eps), log10(0.5), length=N))
 
-    X = Array(fread("ben/x.bsp.h5"))
+    X = fread("ben/x.bsp.h5")
 
     # # dense 
     # pairs_dense = []
     # println("For dense matrix multiplication:")
     # for i in indices
     #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
+    #     X_dense = Array(X)
     #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
     #     println("\tDensity: ", i)
     #     M_dense = Array(M_dense)
-    #     sol_calc = M_dense * X
+    #     sol_calc = M_dense * X_dense
 
-    #     bench_results = @benchmark $M_dense * $X
+    #     bench_results = @benchmark $M_dense * $X_dense
 
     #     if isapprox(sol_calc, sol; rtol=1e-8, atol=1e-12)
     #         println("\t\tTime: \t", minimum(bench_results.times), "ns")
@@ -185,11 +219,12 @@ function main()
     # for i in indices
     #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
     #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+    #     X_dense = Array(X)
 
     #     println("\tDensity: ", i)
     #     M_dense = Array(M_dense)
 
-    #     local sa_csc_val = sa_csc(M_dense, X, sol)
+    #     local sa_csc_val = sa_csc(M_dense, X_dense, sol)
     #     if sa_csc_val != -1
     #         println("\t\tTime: \t", sa_csc_val, "ns")
     #         push!(pairs_sa_csc, (i, sa_csc_val))
@@ -216,11 +251,12 @@ function main()
 
         M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+        X_dense = Array(X)
 
         println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
-        local custom_coo_val = custom_coo(M_dense, X, sol)
+        local custom_coo_val = custom_coo(M_dense, X_dense, sol)
         if custom_coo_val != -1
             println("\t\tTime: \t", custom_coo_val, "ns")
             push!(pairs_coo, (i, custom_coo_val))
@@ -229,10 +265,73 @@ function main()
         end
     end
 
-    open("res/1001/custom-coo-opt.json", "w") do f
+    open("res/1005/custom-coo-opt.json", "w") do f
         JSON3.write(f, pairs_coo)
     end
 
+
+    # custom coo with decoupled tuples
+    pairs_coo_sep = []
+    println("For custom coo with decoupled tuples multiplication:")
+    k = -1
+    for i in indices
+        # reduce number of runs
+        k += 1
+        if k % 10 != 0
+            continue
+        end
+
+        M_dense = fread(string("ben/m", i, ".bsp.h5"))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+        X_dense = Array(X)
+
+        println("\tDensity: ", i)
+        M_dense = Array(M_dense)
+
+        local custom_coo_sep_val = custom_coo_sep(M_dense, X_dense, sol)
+        if custom_coo_sep_val != -1
+            println("\t\tTime: \t", custom_coo_sep_val, "ns")
+            push!(pairs_coo_sep, (i, custom_coo_sep_val))
+        else
+            println("\t\tcustom COO sep: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/1005/custom-coo-sep.json", "w") do f
+        JSON3.write(f, pairs_coo_sep)
+    end
+
+
+    # custom csc
+    pairs_csc = []
+    println("For custom csc multiplication:")
+    k = -1
+    for i in indices
+        # reduce number of runs
+        k += 1
+        if k % 10 != 0
+            continue
+        end
+
+        M_dense = fread(string("ben/m", i, ".bsp.h5"))
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+        X_dense = Array(X)
+
+        println("\tDensity: ", i)
+        M_dense = Array(M_dense)
+
+        local custom_csc_val = custom_csc(M_dense, X_dense, sol)
+        if custom_csc_val != -1
+            println("\t\tTime: \t", custom_csc_val, "ns")
+            push!(pairs_csc, (i, custom_csc_val))
+        else
+            println("\t\tcustom CSC: matmul resulted in wrong answer.")
+        end
+    end
+
+    open("res/1005/custom-csc.json", "w") do f
+        JSON3.write(f, pairs_csc)
+    end
 
 end
 
