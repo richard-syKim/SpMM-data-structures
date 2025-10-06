@@ -238,80 +238,80 @@ function main()
     # end
 
 
-    # custom coo
-    pairs_coo = []
-    println("For custom coo multiplication:")
-    k = -1
-    for i in indices
-        # reduce number of runs
-        k += 1
-        if k % 10 != 0
-            continue
-        end
+    # # custom coo
+    # pairs_coo = []
+    # println("For custom coo multiplication:")
+    # k = -1
+    # for i in indices
+    #     # reduce number of runs
+    #     k += 1
+    #     if k % 10 != 0
+    #         continue
+    #     end
 
-        M_dense = fread(string("ben/m", i, ".bsp.h5"))
-        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-        X_dense = Array(X)
+    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
+    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+    #     X_dense = Array(X)
 
-        println("\tDensity: ", i)
-        M_dense = Array(M_dense)
+    #     println("\tDensity: ", i)
+    #     M_dense = Array(M_dense)
 
-        local custom_coo_val = custom_coo(M_dense, X_dense, sol)
-        if custom_coo_val != -1
-            println("\t\tTime: \t", custom_coo_val, "ns")
-            push!(pairs_coo, (i, custom_coo_val))
-        else
-            println("\t\tcustom COO: matmul resulted in wrong answer.")
-        end
-    end
+    #     local custom_coo_val = custom_coo(M_dense, X_dense, sol)
+    #     if custom_coo_val != -1
+    #         println("\t\tTime: \t", custom_coo_val, "ns")
+    #         push!(pairs_coo, (i, custom_coo_val))
+    #     else
+    #         println("\t\tcustom COO: matmul resulted in wrong answer.")
+    #     end
+    # end
 
-    open("res/1005/custom-coo-opt.json", "w") do f
-        JSON3.write(f, pairs_coo)
-    end
+    # open("res/1005/custom-coo-opt.json", "w") do f
+    #     JSON3.write(f, pairs_coo)
+    # end
 
 
-    # custom coo with decoupled tuples
-    pairs_coo_sep = []
-    println("For custom coo with decoupled tuples multiplication:")
-    k = -1
-    for i in indices
-        # reduce number of runs
-        k += 1
-        if k % 10 != 0
-            continue
-        end
+    # # custom coo with decoupled tuples
+    # pairs_coo_sep = []
+    # println("For custom coo with decoupled tuples multiplication:")
+    # k = -1
+    # for i in indices
+    #     # reduce number of runs
+    #     k += 1
+    #     if k % 10 != 0
+    #         continue
+    #     end
 
-        M_dense = fread(string("ben/m", i, ".bsp.h5"))
-        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-        X_dense = Array(X)
+    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
+    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+    #     X_dense = Array(X)
 
-        println("\tDensity: ", i)
-        M_dense = Array(M_dense)
+    #     println("\tDensity: ", i)
+    #     M_dense = Array(M_dense)
 
-        local custom_coo_sep_val = custom_coo_sep(M_dense, X_dense, sol)
-        if custom_coo_sep_val != -1
-            println("\t\tTime: \t", custom_coo_sep_val, "ns")
-            push!(pairs_coo_sep, (i, custom_coo_sep_val))
-        else
-            println("\t\tcustom COO sep: matmul resulted in wrong answer.")
-        end
-    end
+    #     local custom_coo_sep_val = custom_coo_sep(M_dense, X_dense, sol)
+    #     if custom_coo_sep_val != -1
+    #         println("\t\tTime: \t", custom_coo_sep_val, "ns")
+    #         push!(pairs_coo_sep, (i, custom_coo_sep_val))
+    #     else
+    #         println("\t\tcustom COO sep: matmul resulted in wrong answer.")
+    #     end
+    # end
 
-    open("res/1005/custom-coo-sep.json", "w") do f
-        JSON3.write(f, pairs_coo_sep)
-    end
+    # open("res/1005/custom-coo-sep.json", "w") do f
+    #     JSON3.write(f, pairs_coo_sep)
+    # end
 
 
     # custom csc
     pairs_csc = []
     println("For custom csc multiplication:")
-    k = -1
+    # k = -1
     for i in indices
-        # reduce number of runs
-        k += 1
-        if k % 10 != 0
-            continue
-        end
+        # # reduce number of runs
+        # k += 1
+        # if k % 10 != 0
+        #     continue
+        # end
 
         M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
