@@ -16,141 +16,6 @@ using JSON3
 using HDF5
 
 
-const SIZE = 8192
-const SKINNY = 100
-
-
-function custom_coo_setup(M)
-    # define the exact type of u to remove "Any"
-    u = Vector{Tuple{Int, Int, Float64}}()
-
-    for i in 1:size(M, 1)
-        for j in 1:size(M, 2)
-            if M[i, j] != 0
-                push!(u, (i, j, M[i, j]))
-            end
-        end
-    end
-
-    return u
-end
-
-function custom_coo_mul(M, X)
-    # use @inbound to avoid bound check when accessing indices (y[i, d], X[j, d])
-    @inbounds begin
-        # @fastmath to allow floating point optimizations that are correct for real numbers
-        @fastmath begin
-            y = zeros(size(X, 1), size(X, 2))
-            s = size(X, 2)
-            for (i, j, v) in M
-                for d in 1:s
-                    y[i, d] += v * X[j, d]
-                end
-            end
-        end
-    end
-    return y
-end
-
-
-function custom_coo(M, X, sol)
-    m_coo = custom_coo_setup(M)
-
-    bench_results = @benchmark custom_coo_mul($m_coo, $X)
-    temp = custom_coo_mul(m_coo, X)
-    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
-        return (minimum(bench_results.times))
-    else
-        return -1
-    end
-end
-
-
-function custom_coo_sep_mul(I, J, V, X)
-    @inbounds begin
-        @fastmath begin
-            y = zeros(size(X, 1), size(X, 2))
-            size_m = size(I, 1)
-            s = size(X, 2)
-            for p in 1:size_m
-                i_p = I[p]
-                j_p = J[p]
-                v_p = V[p]
-
-                # add potential SIMD
-                @simd for d in 1:s
-                    y[i_p, d] += v_p * X[j_p, d]
-                end
-            end
-        end
-    end
-    return y
-end
-
-
-function unzip(A)
-    return map(x->getfield.(A, x), fieldnames(eltype(A)))
-end
-
-
-function custom_coo_sep(M, X, sol)
-    m_coo = custom_coo_setup(M)
-    I, J, V = unzip(m_coo)
-
-    bench_results = @benchmark custom_coo_sep_mul($I, $J, $V, $X)
-    temp = custom_coo_sep_mul(I, J, V, X)
-    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
-        return (minimum(bench_results.times))
-    else
-        return -1
-    end
-end
-
-
-function custom_csc_mul(A::SparseMatrixCSC, X)
-    @inbounds begin
-        @fastmath begin
-            # work with permuted matrix for row-major
-            X_t = permutedims(X)
-            ptr = A.colptr
-            idx = A.rowval
-            val = A.nzval
-
-            m, n = size(A)
-            n, d = size(X)
-
-            Y_t = zeros(d, m)
-
-            for j in 1:n
-                st = ptr[j]
-                ed = ptr[j+1] - 1
-                for p in st:ed
-                    i = idx[p]
-                    v = val[p]
-                    for k in 1:d
-                        Y_t[k, i] += v * X_t[k, j]
-                    end
-                end
-            end
-        end
-    end
-    return permutedims(Y_t)
-end
-
-
-function custom_csc(M, X, sol)
-    m_csc = sparse(M)
-
-    bench_results = @benchmark custom_csc_mul($m_csc, $X)
-    temp = custom_csc_mul(m_csc, X)
-    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
-        return (minimum(bench_results.times))
-    else
-        return -1
-    end
-end
-
-
 function sa_csc(M, X, sol)
     m_sparse = sparse(M)
 
@@ -186,69 +51,37 @@ function main()
 
     X = fread("ben/x.bsp.h5")
 
-    # # dense 
-    # pairs_dense = []
-    # println("For dense matrix multiplication:")
-    # for i in indices
-    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
-    #     X_dense = Array(X)
-    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-
-    #     println("\tDensity: ", i)
-    #     M_dense = Array(M_dense)
-    #     sol_calc = M_dense * X_dense
-
-    #     bench_results = @benchmark $M_dense * $X_dense
-
-    #     if isapprox(sol_calc, sol; rtol=1e-8, atol=1e-12)
-    #         println("\t\tTime: \t", minimum(bench_results.times), "ns")
-    #         push!(pairs_dense, (i, minimum(bench_results.times)))
-    #     else
-    #         println("\t\tWrong result.")
-    #     end
-    # end
-
-    # open("res/0929/dense.json", "w") do f
-    #     JSON3.write(f, pairs_dense)
-    # end
-
-
-    # # sparse arrays
-    # pairs_sa_csc = []
-    # println("For SparseArrays CSC multiplication:")
-    # for i in indices
-    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
-    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-    #     X_dense = Array(X)
-
-    #     println("\tDensity: ", i)
-    #     M_dense = Array(M_dense)
-
-    #     local sa_csc_val = sa_csc(M_dense, X_dense, sol)
-    #     if sa_csc_val != -1
-    #         println("\t\tTime: \t", sa_csc_val, "ns")
-    #         push!(pairs_sa_csc, (i, sa_csc_val))
-    #     else
-    #         println("\t\tSparseArray CSC: matmul resulted in wrong answer.")
-    #     end
-    # end
-
-    # open("res/0929/sparse-arrays-csc.json", "w") do f
-    #     JSON3.write(f, pairs_sa_csc)
-    # end
-
-
-    # custom coo
-    pairs_coo = []
-    println("For custom coo multiplication:")
-    # k = -1
+    # dense 
+    pairs_dense = []
+    println("For dense matrix multiplication:")
     for i in indices
-        # # reduce number of runs
-        # k += 1
-        # if k % 10 != 0
-        #     continue
-        # end
+        M_dense = fread(string("ben/m", i, ".bsp.h5"))
+        X_dense = Array(X)
+        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
 
+        println("\tDensity: ", i)
+        M_dense = Array(M_dense)
+        sol_calc = M_dense * X_dense
+
+        bench_results = @benchmark $M_dense * $X_dense
+
+        if isapprox(sol_calc, sol; rtol=1e-8, atol=1e-12)
+            println("\t\tTime: \t", minimum(bench_results.times), "ns")
+            push!(pairs_dense, (i, minimum(bench_results.times)))
+        else
+            println("\t\tWrong result.")
+        end
+    end
+
+    open("res/0929/dense.json", "w") do f
+        JSON3.write(f, pairs_dense)
+    end
+
+
+    # sparse arrays
+    pairs_sa_csc = []
+    println("For SparseArrays CSC multiplication:")
+    for i in indices
         M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
         X_dense = Array(X)
@@ -256,83 +89,18 @@ function main()
         println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
-        local custom_coo_val = custom_coo(M_dense, X_dense, sol)
-        if custom_coo_val != -1
-            println("\t\tTime: \t", custom_coo_val, "ns")
-            push!(pairs_coo, (i, custom_coo_val))
+        local sa_csc_val = sa_csc(M_dense, X_dense, sol)
+        if sa_csc_val != -1
+            println("\t\tTime: \t", sa_csc_val, "ns")
+            push!(pairs_sa_csc, (i, sa_csc_val))
         else
-            println("\t\tcustom COO: matmul resulted in wrong answer.")
+            println("\t\tSparseArray CSC: matmul resulted in wrong answer.")
         end
     end
 
-    open("res/1005/custom-coo-opt.json", "w") do f
-        JSON3.write(f, pairs_coo)
+    open("res/0929/sparse-arrays-csc.json", "w") do f
+        JSON3.write(f, pairs_sa_csc)
     end
-
-
-    # custom coo with decoupled tuples
-    pairs_coo_sep = []
-    println("For custom coo with decoupled tuples multiplication:")
-    # k = -1
-    for i in indices
-        # # reduce number of runs
-        # k += 1
-        # if k % 10 != 0
-        #     continue
-        # end
-
-        M_dense = fread(string("ben/m", i, ".bsp.h5"))
-        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-        X_dense = Array(X)
-
-        println("\tDensity: ", i)
-        M_dense = Array(M_dense)
-
-        local custom_coo_sep_val = custom_coo_sep(M_dense, X_dense, sol)
-        if custom_coo_sep_val != -1
-            println("\t\tTime: \t", custom_coo_sep_val, "ns")
-            push!(pairs_coo_sep, (i, custom_coo_sep_val))
-        else
-            println("\t\tcustom COO sep: matmul resulted in wrong answer.")
-        end
-    end
-
-    open("res/1005/custom-coo-sep.json", "w") do f
-        JSON3.write(f, pairs_coo_sep)
-    end
-
-
-    # # custom csc
-    # pairs_csc = []
-    # println("For custom csc multiplication:")
-    # # k = -1
-    # for i in indices
-    #     # reduce number of runs
-    #     k += 1
-    #     if k % 10 != 0
-    #         continue
-    #     end
-
-    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
-    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-    #     X_dense = Array(X)
-
-    #     println("\tDensity: ", i)
-    #     M_dense = Array(M_dense)
-
-    #     local custom_csc_val = custom_csc(M_dense, X_dense, sol)
-    #     if custom_csc_val != -1
-    #         println("\t\tTime: \t", custom_csc_val, "ns")
-    #         push!(pairs_csc, (i, custom_csc_val))
-    #     else
-    #         println("\t\tcustom CSC: matmul resulted in wrong answer.")
-    #     end
-    # end
-
-    # open("res/1005/custom-csc.json", "w") do f
-    #     JSON3.write(f, pairs_csc)
-    # end
-
 end
 
 main()
