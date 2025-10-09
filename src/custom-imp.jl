@@ -6,6 +6,7 @@ Pkg.add("SuiteSparseGraphBLAS")
 Pkg.add("Finch")
 Pkg.add("JSON3")
 Pkg.add("HDF5")
+Pkg.add("")
 
 using StatsBase
 using BenchmarkTools
@@ -19,9 +20,10 @@ using HDF5
 function custom_coo_setup(M)
     # define the exact type of u to remove "Any"
     u = Vector{Tuple{Int, Int, Float64}}()
+    i_d, j_d = size(M)
 
-    for i in 1:size(M, 1)
-        for j in 1:size(M, 2)
+    for i in 1:i_d
+        for j in 1:j_d
             if M[i, j] != 0
                 push!(u, (i, j, M[i, j]))
             end
@@ -148,10 +150,12 @@ end
 
 
 function bytemap(M)
-    B = zeros(Int8, size(M, 1), size(M, 2))
+    i_d = size(M, 1)
+    j_d = size(M, 2)
+    B = zeros(Int8, i_d, j_d)
     val = Vector{Float64}()
-    for i in size(M, 1)
-        for j in size(M, 2)
+    for i in 1:i_d
+        for j in 1:j_d
             if M[i, j] != 0.0
                 B[i, j] = 1
                 push!(val, M[i, j])
@@ -163,9 +167,44 @@ function bytemap(M)
     return B, val 
 end
 
+
+function custom_bytemap_mul(B, val, X)
+    i_d = size(B, 1)
+    j_d = size(B, 2)
+    k_d = size(X, 2)
+    Y = zeros(i_d, k_d)
+
+    cnt = 1
+    @inbounds begin
+        @fastmath begin
+            for i in 1:i_d
+                for j in 1:j_d
+                    if B[i, j] == 1
+                        v = val[cnt]
+                        @simd for k in 1:k_d
+                            Y[i, k] += v * X[j, k]
+                        end
+                        cnt += 1
+                    end
+                end
+            end
+        end
+    end
+
+    return Y
+end
+
+
 function custom_bytemap(M, X, sol)
     B, val = bytemap(M)
-    return 
+
+    bench_results = @benchmark custom_bytemap_mul($B, $val, $X)
+    temp = custom_bytemap_mul(B, val, X)
+    if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
+        return (minimum(bench_results.times))
+    else
+        return -1
+    end
 end
 
 
@@ -178,80 +217,112 @@ function main()
     X = fread("ben/x.bsp.h5")
 
 
-    # custom coo
-    pairs_coo = []
-    println("For custom coo multiplication:")
-    k = -1
-    for i in indices
-        # reduce number of runs
-        k += 1
-        if k % 10 != 0
-            continue
-        end
-
-        M_dense = fread(string("ben/m", i, ".bsp.h5"))
-        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-        X_dense = Array(X)
-
-        println("\tDensity: ", i)
-        M_dense = Array(M_dense)
-
-        local custom_coo_val = custom_coo(M_dense, X_dense, sol)
-        if custom_coo_val != -1
-            println("\t\tTime: \t", custom_coo_val, "ns")
-            push!(pairs_coo, (i, custom_coo_val))
-        else
-            println("\t\tcustom COO: matmul resulted in wrong answer.")
-        end
-    end
-
-    open("res/1005/custom-coo-opt.json", "w") do f
-        JSON3.write(f, pairs_coo)
-    end
-
-
-    # custom coo with decoupled tuples
-    pairs_coo_sep = []
-    println("For custom coo with decoupled tuples multiplication:")
-    k = -1
-    for i in indices
-        # reduce number of runs
-        k += 1
-        if k % 10 != 0
-            continue
-        end
-
-        M_dense = fread(string("ben/m", i, ".bsp.h5"))
-        sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
-        X_dense = Array(X)
-
-        println("\tDensity: ", i)
-        M_dense = Array(M_dense)
-
-        local custom_coo_sep_val = custom_coo_sep(M_dense, X_dense, sol)
-        if custom_coo_sep_val != -1
-            println("\t\tTime: \t", custom_coo_sep_val, "ns")
-            push!(pairs_coo_sep, (i, custom_coo_sep_val))
-        else
-            println("\t\tcustom COO sep: matmul resulted in wrong answer.")
-        end
-    end
-
-    open("res/1005/custom-coo-sep.json", "w") do f
-        JSON3.write(f, pairs_coo_sep)
-    end
-
-
-    # custom csc
-    pairs_csc = []
-    println("For custom csc multiplication:")
+    # # custom coo
+    # pairs_coo = []
+    # println("For custom coo multiplication:")
     # k = -1
+    # for i in indices
+    #     # reduce number of runs
+    #     k += 1
+    #     if k % 10 != 0
+    #         continue
+    #     end
+
+    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
+    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+    #     X_dense = Array(X)
+
+    #     println("\tDensity: ", i)
+    #     M_dense = Array(M_dense)
+
+    #     local custom_coo_val = custom_coo(M_dense, X_dense, sol)
+    #     if custom_coo_val != -1
+    #         println("\t\tTime: \t", custom_coo_val, "ns")
+    #         push!(pairs_coo, (i, custom_coo_val))
+    #     else
+    #         println("\t\tcustom COO: matmul resulted in wrong answer.")
+    #     end
+    # end
+
+    # open("res/1005/custom-coo-opt.json", "w") do f
+    #     JSON3.write(f, pairs_coo)
+    # end
+
+
+    # # custom coo with decoupled tuples
+    # pairs_coo_sep = []
+    # println("For custom coo with decoupled tuples multiplication:")
+    # k = -1
+    # for i in indices
+    #     # reduce number of runs
+    #     k += 1
+    #     if k % 10 != 0
+    #         continue
+    #     end
+
+    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
+    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+    #     X_dense = Array(X)
+
+    #     println("\tDensity: ", i)
+    #     M_dense = Array(M_dense)
+
+    #     local custom_coo_sep_val = custom_coo_sep(M_dense, X_dense, sol)
+    #     if custom_coo_sep_val != -1
+    #         println("\t\tTime: \t", custom_coo_sep_val, "ns")
+    #         push!(pairs_coo_sep, (i, custom_coo_sep_val))
+    #     else
+    #         println("\t\tcustom COO sep: matmul resulted in wrong answer.")
+    #     end
+    # end
+
+    # open("res/1005/custom-coo-sep.json", "w") do f
+    #     JSON3.write(f, pairs_coo_sep)
+    # end
+
+
+    # # custom csc
+    # pairs_csc = []
+    # println("For custom csc multiplication:")
+    # # k = -1
+    # for i in indices
+    #     # # reduce number of runs
+    #     # k += 1
+    #     # if k % 10 != 0
+    #     #     continue
+    #     # end
+
+    #     M_dense = fread(string("ben/m", i, ".bsp.h5"))
+    #     sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
+    #     X_dense = Array(X)
+
+    #     println("\tDensity: ", i)
+    #     M_dense = Array(M_dense)
+
+    #     local custom_csc_val = custom_csc(M_dense, X_dense, sol)
+    #     if custom_csc_val != -1
+    #         println("\t\tTime: \t", custom_csc_val, "ns")
+    #         push!(pairs_csc, (i, custom_csc_val))
+    #     else
+    #         println("\t\tcustom CSC: matmul resulted in wrong answer.")
+    #     end
+    # end
+
+    # open("res/1005/custom-csc.json", "w") do f
+    #     JSON3.write(f, pairs_csc)
+    # end
+
+
+    # custom bytemap
+    pairs_bm = []
+    println("For custom bytemap multiplication:")
+    k = -1
     for i in indices
-        # # reduce number of runs
-        # k += 1
-        # if k % 10 != 0
-        #     continue
-        # end
+        # reduce number of runs
+        k += 1
+        if k % 10 != 0
+            continue
+        end
 
         M_dense = fread(string("ben/m", i, ".bsp.h5"))
         sol = Array(fread(string("ben/sol", i, ".bsp.h5")))
@@ -260,19 +331,18 @@ function main()
         println("\tDensity: ", i)
         M_dense = Array(M_dense)
 
-        local custom_csc_val = custom_csc(M_dense, X_dense, sol)
-        if custom_csc_val != -1
-            println("\t\tTime: \t", custom_csc_val, "ns")
-            push!(pairs_csc, (i, custom_csc_val))
+        local custom_bm_val = custom_bytemap(M_dense, X_dense, sol)
+        if custom_bm_val != -1
+            println("\t\tTime: \t", custom_bm_val, "ns")
+            push!(pairs_bm, (i, custom_bm_val))
         else
-            println("\t\tcustom CSC: matmul resulted in wrong answer.")
+            println("\t\tcustom bytemap: matmul resulted in wrong answer.")
         end
     end
 
-    open("res/1005/custom-csc.json", "w") do f
-        JSON3.write(f, pairs_csc)
+    open("res/1008/custom-bm.json", "w") do f
+        JSON3.write(f, pairs_bm)
     end
-
 end
 
 main()
