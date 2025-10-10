@@ -2,19 +2,18 @@ using Pkg
 Pkg.add("StatsBase")
 Pkg.add("BenchmarkTools")
 Pkg.add("SparseArrays")
-Pkg.add("SuiteSparseGraphBLAS")
 Pkg.add("Finch")
 Pkg.add("JSON3")
 Pkg.add("HDF5")
-Pkg.add("")
+Pkg.add("LoopVectorization")
 
 using StatsBase
 using BenchmarkTools
 using SparseArrays
-using SuiteSparseGraphBLAS
 using Finch
 using JSON3
 using HDF5
+using LoopVectorization
 
 
 function custom_coo_setup(M)
@@ -172,7 +171,8 @@ function custom_bytemap_mul(B, val, X)
     i_d = size(B, 1)
     j_d = size(B, 2)
     k_d = size(X, 2)
-    Y = zeros(i_d, k_d)
+    Y_t = zeros(k_d, i_d)
+    X_t = transpose(X)
 
     cnt = 1
     @inbounds begin
@@ -181,8 +181,8 @@ function custom_bytemap_mul(B, val, X)
                 for j in 1:j_d
                     if B[i, j] == 1
                         v = val[cnt]
-                        @simd for k in 1:k_d
-                            Y[i, k] += v * X[j, k]
+                        for k in 1:k_d
+                            Y_t[k, i] += v * X_t[k, j]
                         end
                         cnt += 1
                     end
@@ -191,15 +191,75 @@ function custom_bytemap_mul(B, val, X)
         end
     end
 
-    return Y
+    return transpose(Y_t)
+end
+
+
+function custom_bytemap_mul(B, val, X)
+    i_d = size(B, 1)
+    j_d = size(B, 2)
+    k_d = size(X, 2)
+    Y_t = zeros(k_d, i_d)
+    X_t = transpose(X)
+
+    cnt = 1
+    @inbounds begin
+        @fastmath begin
+            for i in 1:i_d
+                for j in 1:j_d
+                    if B[i, j] == 1
+                        v = val[cnt]
+                        for k in 1:k_d
+                            Y_t[k, i] += v * X_t[k, j]
+                        end
+                        cnt += 1
+                    end
+                end
+            end
+        end
+    end
+
+    return transpose(Y_t)
+end
+
+
+# function custom_bytemap(M, X, sol)
+#     B, val = bytemap(M)
+
+#     bench_results = @benchmark custom_bytemap_mul($B, $val, $X)
+#     temp = custom_bytemap_mul(B, val, X)
+#     if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
+#         return (minimum(bench_results.times))
+#     else
+#         return -1
+#     end
+# end
+
+
+function custom_bytemap_mul!(Y, B, val, X)
+    i_d, j_d = size(B)
+    k_d = size(X, 2)
+
+    cnt = 1
+    @fastmath begin
+        @turbo for i in 1:i_d
+            for j in 1:j_d
+                for k in 1:k_d
+                    Y[i, k] += val[cnt] * (B[i, j] == 1 ? X[j, k] : 0.0)
+                end
+                cnt += 1
+            end
+        end
+    end
 end
 
 
 function custom_bytemap(M, X, sol)
     B, val = bytemap(M)
+    temp = zeros(size(B))
 
-    bench_results = @benchmark custom_bytemap_mul($B, $val, $X)
-    temp = custom_bytemap_mul(B, val, X)
+    bench_results = @benchmark custom_bytemap_mul!($temp, $B, $val, $X)
+    custom_bytemap_mul!(temp, B, val, X)
     if isapprox(temp, sol; rtol=1e-8, atol=1e-12)
         return (minimum(bench_results.times))
     else
